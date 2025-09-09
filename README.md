@@ -10,7 +10,7 @@
 | 스크립트 파일 | 설명 |
 | --- | --- |
 | `init.sh` | Proxmox 설치 후 초기 설정 값 대응 |
-| `partition.sh` | Proxmox 디스크 파티셔닝 및 PV, VG, LV 세팅 적용 |
+| `partition.sh` | Proxmox 디스크 파티셔닝 및 PV, VG, LV, LVM 세팅 적용 |
 
 ### Step1. Proxmox Repository 변경 및 APT 업데이트
 ```
@@ -41,4 +41,17 @@ mkdir -p /opt/proxmox && cd /opt/proxmox
 curl -o init.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/init.sh
 chmod +x init.sh
 ./init.sh
+```
+
+### Step4. proxmox 파티셔닝
+- 메인디스크 잔여용량 lvm-thin 모드로 생성
+- 보조/백업 디스크 생성유형에 따른 처리 (보조모드로 헤놀로지 통 운영시 : lvm-thin, 백업모드로 운영시 : directory)
+- parted 처리 및 pv/vg/lv/lvm 생성까지 처리
+- 디렉토리 구성시 마운트 구성으로 대응
+```bash
+# 
+mkdir -p /opt/proxmox && cd /opt/proxmox
+curl -o init.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/partition.sh
+chmod +x partition.sh
+./partition.sh
 ```
