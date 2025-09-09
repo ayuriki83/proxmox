@@ -2,51 +2,50 @@
 
 set -e
 
-# 0. root 사이즈 변경
+echo "==> 0. root 사이즈 변경"
 BEFORE_SIZE_GB=$(lsblk -b /dev/mapper/pve-root -o SIZE -n | awk '{printf "%.2f", $1/1024/1024/1024}')
 echo "작업 전 용량: ${BEFORE_SIZE_GB} GB"
-
-lvresize -l +100%FREE /dev/pve/root
-resize2fs /dev/mapper/pve-root
-
+lvresize -l +100%FREE /dev/pve/root >/dev/null 2>&1
+resize2fs /dev/mapper/pve-root >/dev/null 2>&1
 AFTER_SIZE_GB=$(lsblk -b /dev/mapper/pve-root -o SIZE -n | awk '{printf "%.2f", $1/1024/1024/1024}')
 echo "작업 후 용량: ${AFTER_SIZE_GB} GB"
+echo
 
-# 1. 영구 alias 설정
+echo "==> 1. alias 설정"
 echo "alias ls='ls --color=auto --show-control-chars'" >> ~/.bashrc
 echo "alias l='ls -al --color=auto --show-control-chars'" >> ~/.bashrc
 echo "alias ll='ls -al --color=auto --show-control-chars'" >> ~/.bashrc
-echo "alias ll='ls -lah --color=auto'" >> ~/.bashrc
 source ~/.bashrc
-echo "alias set in ~/.bashrc and applied immediately."
+echo "alias 설정 및 즉시 적용"
+echo
 
-# 2. AppArmor 비활성화
-echo "Disabling AppArmor..."
-systemctl stop apparmor
-systemctl disable apparmor
-systemctl mask apparmor
+echo "==> 2. AppArmor 비활성화"
+systemctl stop apparmor >/dev/null 2>&1
+systemctl disable apparmor >/dev/null 2>&1
+systemctl mask apparmor >/dev/null 2>&1
 echo "AppArmor disabled."
+echo
 
-# 3. 방화벽 설정
-echo "기존 pve-firewall 비활성화..."
-systemctl stop pve-firewall
-systemctl disable pve-firewall
+echo "==> # 3. 방화벽 설정"
+systemctl stop pve-firewall >/dev/null 2>&1
+systemctl disable pve-firewall >/dev/null 2>&1
+echo "기존 pve-firewall 비활성화"
 
-echo "ufw 설치 및 구성 시작..."
-apt update && apt install -y ufw
+apt update && apt install -y ufw >/dev/null 2>&1
+echo "ufw 설치완료"
 
+PORTS=(22 8006 45876) # SSH, Proxmox Web UI, Beszel agent
+for PORT in "${PORTS[@]}"; do
+    ufw allow $PORT >/dev/null 2>&1
+done
 read -p "내부망 IP 대역을 입력하세요 (예: 192.168.0.0/24): " INTERNAL_NETWORK
-
-ufw allow 22       # SSH
-ufw allow 8006     # Proxmox Web UI
-ufw allow 45876    # Beszel agent
-ufw allow from "$INTERNAL_NETWORK"
-ufw --force enable
-
-echo "방화벽 설정이 완료되었습니다."
+ufw allow from "$INTERNAL_NETWORK" >/dev/null 2>&1
+ufw --force enable >/dev/null 2>&1
+echo "방화벽 설정이 완료되었습니다. 적용현황은 다음과 같습니다."
 ufw status verbose
+echo
 
-# 4. USB 사용 여부 선택
+echo "==> # 4. USB 사용 여부 선택"
 read -p "USB 장치를 사용하시겠습니까? (Y/N): " USE_USB
 USE_USB=$(echo "$USE_USB" | tr '[:upper:]' '[:lower:]')
 
@@ -79,8 +78,9 @@ if [[ "$USE_USB" == "y" ]]; then
 else
   echo "USB 장치 사용을 건너뜁니다."
 fi
+echo
 
-# 5. GPU 종류 선택 및 설치
+echo "==> # 5. GPU 종류 선택 및 설치"
 echo "GPU 종류를 선택하세요:"
 echo "1) AMD(내장/외장)"
 echo "2) Intel(내장/외장)"
@@ -89,21 +89,21 @@ read -p "선택 (1/2/3): " GPU_CHOICE
 
 case $GPU_CHOICE in
   1)  # AMD 내장/외장 GPU
-    echo "AMD GPU 펌웨어 및 드라이버 설치 중..."
-    apt install -y pve-firmware
-    echo "AMD GPU IOMMU 활성화 설정 중..."
-    sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="amd_iommu=on iommu=pt /' /etc/default/grub
+    #echo "AMD GPU 펌웨어 및 드라이버 설치 중..."
+    apt install -y pve-firmware >/dev/null 2>&1
+    #echo "AMD GPU IOMMU 활성화 설정 중..."
+    sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="amd_iommu=on iommu=pt /' /etc/default/grub >/dev/null 2>&1
     ;;
   2)  # Intel 내장/외장 GPU
     echo "Intel GPU IOMMU 활성화 설정 중..."
-    sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="intel_iommu=on iommu=pt /' /etc/default/grub
+    sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="intel_iommu=on iommu=pt /' /etc/default/grub >/dev/null 2>&1
     ;;
   3)  # NVIDIA 외장 GPU
     echo "NVIDIA GPU IOMMU 활성화 설정 중..."
-    sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="iommu=pt /' /etc/default/grub
+    sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="iommu=pt /' /etc/default/grub >/dev/null 2>&1
     echo "NVIDIA VFIO 모듈 로딩 중..."
-    modprobe vfio-pci
-    echo -e "vfio\nvfio_iommu_type1\nvfio_pci\nvfio_virqfd" | tee /etc/modules-load.d/vfio.conf
+    modprobe vfio-pci >/dev/null 2>&1
+    echo -e "vfio\nvfio_iommu_type1\nvfio_pci\nvfio_virqfd" | tee /etc/modules-load.d/vfio.conf >/dev/null 2>&1
     echo "NVIDIA PCI 디바이스 ID는 lspci -nn | grep -i nvidia 로 확인 가능하며, vfio 바인딩은 수동 또는 별도 스크립트로 진행하세요."
     ;;
   *)
@@ -112,6 +112,6 @@ case $GPU_CHOICE in
 esac
 
 echo "grub 업데이트 중..."
-update-grub
+update-grub >/dev/null 2>&1
 
 echo "재부팅 후 'ls -la /dev/dri/' 명령으로 GPU 장치를 확인하세요."
