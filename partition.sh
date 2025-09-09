@@ -73,6 +73,7 @@ if [ -n "$SECOND_DISK" ]; then
 
   if [[ "$SECOND_TYPE" == "1" ]]; then
     parted /dev/$SECOND_DISK --script mklabel gpt
+    wipefs -a /dev/$SECOND_DISK
     parted /dev/$SECOND_DISK --script mkpart primary 0% 100%
     parted /dev/$SECOND_DISK --script set 1 lvm on
     partprobe /dev/$SECOND_DISK
@@ -85,7 +86,7 @@ if [ -n "$SECOND_DISK" ]; then
     PARTITION="/dev/$PARTITION"
 
     # pv, vg, lv 생성(보조 디스크)
-    pvcreate "$PARTITION"
+    pvcreate --yes "$PARTITION"
     vgcreate $VG_DATA "$PARTITION"
     lvcreate -l 100%FREE -T $VG_DATA/$LV_DATA
     pvesm add lvmthin $LVM_DATA --vgname $VG_DATA --thinpool $LV_DATA --content images,rootdir
