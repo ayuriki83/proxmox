@@ -14,13 +14,15 @@ else
 fi
 
 # 환경변수 기본값 지정 (설정파일에 없을 경우 대비)
-VG_MAIN_NAME=${VG_MAIN_NAME:-vg-main}
-LV_MAIN_NAME=${LV_MAIN_NAME:-lv-main}
-LVM_MAIN_NAME=${LVM_MAIN_NAME:-lvm-main}
-VG_DATA_NAME=${VG_MAIN_NAME:-vg-data}
-LV_DATA_NAME=${LV_MAIN_NAME:-lv-data}
-LVM_DATA_NAME=${LVM_MAIN_NAME:-lvm-data}
-LVM_BACKUP_NAME=${LVM_BACKUP_NAME:-backup}
+MAIN=${MAIN:-main}
+DATA=${DATA:-data}
+DIR_NAME=${DIR_NAME:-directory}
+VG_MAIN="vg-$MAIN"
+LV_MAIN="lv-$MAIN"
+LVM_MAIN="lvm-$MAIN"
+VG_DATA="vg-$DATA"
+LV_DATA="lv-$DATA"
+LVM_DATA="lvm-$DATA"
 
 echo "===== 메인 디스크(Linux LVM 잔여 공간) 파티션 생성 자동화 스크립트 ====="
 lsblk -o NAME,SIZE,TYPE,MOUNTPOINT
@@ -64,10 +66,10 @@ echo "새 파티션 $new_part 생성 및 LVM 플래그 적용 완료."
 
 # pv, vg, lv 자동 생성
 pvcreate "$new_part"
-vgcreate $VG_MAIN_NAME "$new_part"
-lvcreate -l 100%FREE -T $VG_MAIN_NAME/$LV_MAIN_NAME
-pvesm add lvmthin $LVM_MAIN_NAME --vgname $VG_MAIN_NAME --thinpool $LV_MAIN_NAME --content images,rootdir
-echo "pv/vg/lv까지 자동 생성 완료: pv($new_part), vg($VG_MAIN_NAME), lv($VG_MAIN_NAME/$LV_MAIN_NAME)"
+vgcreate $VG_MAIN "$new_part"
+lvcreate -l 100%FREE -T $VG_MAIN/$LV_MAIN
+pvesm add lvmthin $LVM_MAIN --vgname $VG_MAIN --thinpool $LV_MAIN --content images,rootdir
+echo "pv/vg/lv까지 자동 생성 완료: pv($new_part), vg($VG_MAIN), lv($VG_MAIN/$LV_MAIN)"
 
 echo "==== 보조/백업 디스크 선택 (미선택시 Enter) ===="
 lsblk -o NAME,SIZE,TYPE
@@ -88,10 +90,10 @@ if [ -n "$SECOND_DISK" ]; then
 
     # pv, vg, lv 생성(보조 디스크)
     pvcreate "$PARTITION"
-    vgcreate $VG_DATA_NAME "$PARTITION"
-    lvcreate -l 100%FREE -T $VG_DATA_NAME/$LV_DATA_NAME
-    pvesm add lvmthin $LVM_MAIN_NAME --vgname $VG_DATA_NAME --thinpool $LV_DATA_NAME --content images,rootdir
-    echo "pv/vg/lv까지 자동 생성 완료: pv($second_part), vg($VG_DATA_NAME), lv($VG_DATA_NAME/$LV_DATA_NAME)"
+    vgcreate $VG_DATA "$PARTITION"
+    lvcreate -l 100%FREE -T $VG_DATA/$LV_DATA
+    pvesm add lvmthin $LVM_DATA --vgname $VG_DATA --thinpool $LV_DATA --content images,rootdir
+    echo "pv/vg/lv까지 자동 생성 완료: pv($PARTITION), vg($VG_DATA), lv($VG_DATA/$LV_DATA)"
   elif [[ "$SECOND_TYPE" == "2" ]]; then
     parted /dev/$SECOND_DISK --script mklabel gpt
     parted /dev/$SECOND_DISK --script mkpart primary ext4 0% 100%
@@ -100,7 +102,7 @@ if [ -n "$SECOND_DISK" ]; then
     # 파티션명이 변수로 들어왔다고 가정 (예: /dev/nvme1n1p1)
     PARTITION=$(lsblk /dev/$SECOND_DISK | awk '/part/ {print $1}' | tail -n1)
     PARTITION="/dev/$PARTITION"
-    MOUNT_PATH="/mnt/$LVM_BACKUP_NAME"
+    MOUNT_PATH="/mnt/$DIRECTORY"
     
     # 실제 UUID 값 조회
     UUID=$(blkid -s UUID -o value "$PARTITION")
@@ -111,8 +113,12 @@ if [ -n "$SECOND_DISK" ]; then
     
     # 마운트경로 생성
     mkdir -p "$MOUNT_PATH"
+
+    # Directory 지정 시 파티션을 ext4로 초기화
+    mkfs.ext4 "$PARTITION"
+    
     # 이미 /etc/fstab에 같은 UUID가 등록되어있는지 체크
-    if ! grep -q "$UUID" /etc/fstab; then
+    if ! grep -qs "UUID=$UUID $MOUNT_PATH" /etc/fstab; then
       echo "UUID=$UUID $MOUNT_PATH ext4 defaults 0 2" >> /etc/fstab
     fi
     systemctl daemon-reload
@@ -120,8 +126,8 @@ if [ -n "$SECOND_DISK" ]; then
     echo "$PARTITION (UUID=$UUID)를 $MOUNT_PATH로 마운트 완료"
     
     # Proxmox 디렉터리 스토리지 등록
-    pvesm add dir "$LVM_BACKUP_NAME" --path "$MOUNT_PATH" --content images,backup,rootdir
-    echo "Proxmox에서 디렉터리 스토리지 ($LVM_BACKUP_NAME)로 등록됨"    
+    pvesm add dir "$DIR_NAME" --path "$MOUNT_PATH" --content images,backup,rootdir
+    echo "Proxmox에서 디렉터리 스토리지 ($DIR_NAME)로 등록됨"    
   else
     echo "올바른 선택이 아닙니다."
     exit 1
