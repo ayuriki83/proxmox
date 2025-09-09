@@ -44,7 +44,7 @@ apt install curl wget htop tree rsync neofetch git vim parted nfs-common net-too
 - GPU 활성화
 ```
 mkdir -p /tmp/proxmox && cd /tmp/proxmox
-curl -o init.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/init.sh
+curl -L -o init.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/init.sh
 chmod +x init.sh
 ./init.sh
 ```
@@ -56,7 +56,8 @@ chmod +x init.sh
 - 디렉토리 구성시 마운트 구성으로 대응
 ```
 mkdir -p /tmp/proxmox && cd /tmp/proxmox
-curl -o init.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/partition.sh
+curl -L -o disk_env.config https://raw.githubusercontent.com/ayuriki83/proxmox/main/disk_env.config
+curl -L -o init.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/partition.sh
 chmod +x partition.sh
 ./partition.sh
 ```
