@@ -5,7 +5,7 @@
 # 요구: parted 기반 (GPT, Linux LVM 또는 Directory 타입 자동 생성)
 ##########################
 
-# 설정 파일 위치 지정 (스크립트와 같은 디렉토리 등) 
+# 설정 파일 위치 지정 (스크립트와 같은 디렉토리 등)
 CONFIG_FILE="./disk_env.config"
 if [ -f "$CONFIG_FILE" ]; then
     source "$CONFIG_FILE"
