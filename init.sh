@@ -11,22 +11,14 @@ AFTER_SIZE_GB=$(lsblk -b /dev/mapper/pve-root -o SIZE -n | awk '{printf "%.2f", 
 echo "작업 후 용량: ${AFTER_SIZE_GB} GB"
 echo
 
-echo "==> 1. alias 설정"
-echo "alias ls='ls --color=auto --show-control-chars'" >> ~/.bashrc
-echo "alias l='ls -al --color=auto --show-control-chars'" >> ~/.bashrc
-echo "alias ll='ls -al --color=auto --show-control-chars'" >> ~/.bashrc
-source ~/.bashrc
-echo "alias 설정 및 즉시 적용"
-echo
-
-echo "==> 2. AppArmor 비활성화"
+echo "==> 1. AppArmor 비활성화"
 systemctl stop apparmor >/dev/null 2>&1
 systemctl disable apparmor >/dev/null 2>&1
 systemctl mask apparmor >/dev/null 2>&1
 echo "AppArmor disabled."
 echo
 
-echo "==> # 3. 방화벽 설정"
+echo "==> # 2. 방화벽 설정"
 systemctl stop pve-firewall >/dev/null 2>&1
 systemctl disable pve-firewall >/dev/null 2>&1
 echo "기존 pve-firewall 비활성화"
@@ -46,7 +38,7 @@ echo "방화벽 설정이 완료되었습니다. 적용현황은 다음과 같�
 ufw status verbose
 echo
 
-echo "==> # 4. USB 사용 여부 선택"
+echo "==> # 3. USB 사용 여부 선택"
 read -p "USB 장치를 사용하시겠습니까? (Y/N): " USE_USB
 USE_USB=$(echo "$USE_USB" | tr '[:upper:]' '[:lower:]')
 
@@ -68,8 +60,8 @@ if [[ "$USE_USB" == "y" ]]; then
     echo "/dev/${USB_DEVICE} ${MOUNT_POINT} ext4 defaults 0 0" | tee -a /etc/fstab
   fi
 
-  systemctl daemon-reload >/dev/null 2>&1
-  mount -a >/dev/null 2>&1
+  systemctl daemon-reload
+  mount -a
   echo "USB 장치 마운트 완료."
 
   pvesm add dir usb-backup --path "${MOUNT_POINT}" --content images,iso,vztmpl,backup,rootdir >/dev/null 2>&1
@@ -79,7 +71,7 @@ else
 fi
 echo
 
-echo "==> # 5. GPU 종류 선택 및 설치"
+echo "==> # 4. GPU 종류 선택 및 설치"
 echo "GPU 종류를 선택하세요:"
 echo "1) AMD(내장/외장)"
 echo "2) Intel(내장/외장)"
@@ -112,5 +104,13 @@ esac
 
 echo "grub 업데이트 중..."
 update-grub >/dev/null 2>&1
-
 echo "재부팅 후 'ls -la /dev/dri/' 명령으로 GPU 장치를 확인하세요."
+echo
+
+echo "==> 5. alias 설정"
+echo "alias ls='ls --color=auto --show-control-chars'" >> ~/.bashrc
+echo "alias l='ls -al --color=auto --show-control-chars'" >> ~/.bashrc
+echo "alias ll='ls -al --color=auto --show-control-chars'" >> ~/.bashrc
+source ~/.bashrc
+echo "alias 설정 및 즉시 적용"
+echo
