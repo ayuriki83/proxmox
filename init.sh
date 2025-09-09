@@ -59,7 +59,7 @@ if [[ "$USE_USB" == "y" ]]; then
 
   MOUNT_POINT="/mnt/usb-backup"
   mkdir -p "${MOUNT_POINT}" >/dev/null 2>&1
-
+  mkfs.ext4 "/dev/${USB_DEVICE}" >/dev/null 2>&1
   echo "USB 장치 /dev/${USB_DEVICE} 을(를) ${MOUNT_POINT}에 마운트하도록 설정합니다."
   # fstab 중복 추가 방지
   if grep -q "/dev/${USB_DEVICE}" /etc/fstab; then
