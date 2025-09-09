@@ -16,7 +16,7 @@ else
 fi
 
 # 환경변수 기본값 지정 (설정파일에 없을 경우 대비)
-MAIN=${MAIN:-main}
+MAIN=${MAIN:-main} 
 DATA=${DATA:-data}
 DIR_NAME=${DIR_NAME:-directory}
 VG_MAIN="vg-$MAIN"
