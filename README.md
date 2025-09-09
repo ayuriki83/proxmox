@@ -42,8 +42,7 @@ apt install curl wget htop tree rsync neofetch git vim parted nfs-common net-too
 - pve-filrewall 비활성화 및 ufw 활성화
 - USB장치를 통한 백업 이용시 자동 마운트 (옵션)
 - GPU 활성화
-```bash
-# 
+```
 mkdir -p /tmp/proxmox && cd /tmp/proxmox
 curl -o init.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/init.sh
 chmod +x init.sh
@@ -55,8 +54,7 @@ chmod +x init.sh
 - 보조/백업 디스크 생성유형에 따른 처리 (보조모드로 헤놀로지 통 운영시 : lvm-thin, 백업모드로 운영시 : directory)
 - parted 처리 및 pv/vg/lv/lvm 생성까지 처리
 - 디렉토리 구성시 마운트 구성으로 대응
-```bash
-# 
+```
 mkdir -p /tmp/proxmox && cd /tmp/proxmox
 curl -o init.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/partition.sh
 chmod +x partition.sh
