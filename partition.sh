@@ -72,8 +72,10 @@ if [ -n "$SECOND_DISK" ]; then
   read -p "보조/백업 디스크 파티션 유형 선택 1:LinuxLVM 2:Directory [1/2]: " SECOND_TYPE
 
   if [[ "$SECOND_TYPE" == "1" ]]; then
-    parted /dev/$SECOND_DISK --script mklabel gpt
+    # 모든 시그니처 먼저 제거
     wipefs -a /dev/$SECOND_DISK
+    # 파티션 테이블 생성(초기화) 및 LVM 설정
+    parted /dev/$SECOND_DISK --script mklabel gpt
     parted /dev/$SECOND_DISK --script mkpart primary 0% 100%
     parted /dev/$SECOND_DISK --script set 1 lvm on
     partprobe /dev/$SECOND_DISK
