@@ -10,6 +10,7 @@
 | 스크립트 파일 | 설명 |
 | --- | --- |
 | `init.sh` | Proxmox 설치 후 초기 설정 값 대응 |
+| `partition.sh` | Proxmox 디스크 파티셔닝 및 PV, VG, LV 세팅 적용 |
 
 ### Step1. Proxmox Repository 변경 및 APT 업데이트
 ```
