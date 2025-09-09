@@ -47,7 +47,7 @@ apt install curl wget htop tree rsync neofetch git vim parted nfs-common net-too
 mkdir -p /tmp/proxmox && cd /tmp/proxmox
 curl -L -o proxmox.conf https://raw.githubusercontent.com/ayuriki83/proxmox/main/proxmox.conf
 curl -L -o init.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/init.sh
-chmod +x init.sh
+chmod +x *.sh
 ./init.sh
 ```
 
@@ -60,7 +60,7 @@ chmod +x init.sh
 mkdir -p /tmp/proxmox && cd /tmp/proxmox
 curl -L -o proxmox.conf https://raw.githubusercontent.com/ayuriki83/proxmox/main/proxmox.conf
 curl -L -o init.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/partition.sh
-chmod +x partition.sh
+chmod +x *.sh
 ./partition.sh
 ```
 
