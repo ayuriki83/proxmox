@@ -5,8 +5,8 @@ set -e
 echo "==> 0. root 사이즈 변경"
 BEFORE_SIZE_GB=$(lsblk -b /dev/mapper/pve-root -o SIZE -n | awk '{printf "%.2f", $1/1024/1024/1024}')
 echo "작업 전 용량: ${BEFORE_SIZE_GB} GB"
-lvresize -l +100%FREE /dev/pve/root >/dev/null 2>&1
-resize2fs /dev/mapper/pve-root >/dev/null 2>&1
+lvresize -l +100%FREE /dev/pve/root >/dev/null 2>&1 || true
+resize2fs /dev/mapper/pve-root >/dev/null 2>&1 || true
 AFTER_SIZE_GB=$(lsblk -b /dev/mapper/pve-root -o SIZE -n | awk '{printf "%.2f", $1/1024/1024/1024}')
 echo "작업 후 용량: ${AFTER_SIZE_GB} GB"
 echo
