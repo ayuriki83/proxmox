@@ -12,7 +12,15 @@
 | `init.sh` | Proxmox 설치 후 초기 설정 값 대응 |
 | `partition.sh` | Proxmox 디스크 파티셔닝 및 PV, VG, LV, LVM 세팅 적용 |
 
-### Step1. Proxmox Repository 변경 및 APT 업데이트
+### Step0. alias 적용
+```
+echo "alias ls='ls --color=auto --show-control-chars'" >> ~/.bashrc
+echo "alias l='ls -al --color=auto --show-control-chars'" >> ~/.bashrc
+echo "alias ll='ls -al --color=auto --show-control-chars'" >> ~/.bashrc
+source ~/.bashrc
+```
+
+### Step1. Proxmox Repository 변경 및 APT 업데이트와 필수도구 설치
 ```
 cp /etc/apt/sources.list.d/pve-enterprise.list /etc/apt/sources.list.d/pve-enterprise.list.bak && \
 echo "deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription" | tee /etc/apt/sources.list.d/pve-enterprise.list
@@ -21,16 +29,12 @@ cp /etc/apt/sources.list.d/ceph.list /etc/apt/sources.list.d/ceph.list.bak && \
 echo "deb http://download.proxmox.com/debian/ceph-quincy bookworm no-subscription" | tee /etc/apt/sources.list.d/ceph.list
 
 apt update && apt upgrade -y
-```
 
-### Step2. 필수 도구 설치
-```
 apt install curl wget htop tree rsync neofetch git vim parted nfs-common net-tools -y
 ```
 
-### Step3. proxmox 기본 설정파일 실행
+### Step2. proxmox 기본 설정파일 실행
 - root 사이즈 최대치 설정
-- alias 변경
 - AppArmor 비활성화
 - pve-filrewall 비활성화 및 ufw 활성화
 - USB장치를 통한 백업 이용시 자동 마운트 (옵션)
@@ -43,7 +47,7 @@ chmod +x init.sh
 ./init.sh
 ```
 
-### Step4. proxmox 파티셔닝
+### Step3. proxmox 파티셔닝
 - 메인디스크 잔여용량 lvm-thin 모드로 생성
 - 보조/백업 디스크 생성유형에 따른 처리 (보조모드로 헤놀로지 통 운영시 : lvm-thin, 백업모드로 운영시 : directory)
 - parted 처리 및 pv/vg/lv/lvm 생성까지 처리
