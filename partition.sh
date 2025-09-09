@@ -137,5 +137,6 @@ else
   echo "보조/백업 디스크 없이 진행합니다."
 fi
 
+echo
 echo "==== 최종 파티션 상태 확인 ===="
 lsblk -o NAME,SIZE,TYPE,MOUNTPOINT
