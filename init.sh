@@ -114,11 +114,3 @@ echo "grub 업데이트 중..."
 update-grub >/dev/null 2>&1
 echo "재부팅 후 'ls -la /dev/dri/' 명령으로 GPU 장치를 확인하세요."
 echo
-
-echo "==> 5. alias 설정"
-echo "alias ls='ls --color=auto --show-control-chars'" >> ~/.bashrc
-echo "alias l='ls -al --color=auto --show-control-chars'" >> ~/.bashrc
-echo "alias ll='ls -al --color=auto --show-control-chars'" >> ~/.bashrc
-source ~/.bashrc
-echo "alias 설정 및 즉시 적용"
-echo
