@@ -51,8 +51,8 @@ if [ -z "$last_end" ]; then
   echo "파티션 정보를 가져올 수 없습니다. 처음부터 생성한다고 가정하고 시작 위치 1MiB 적용"
   last_end=1
 fi
-START_POS=$(parted /dev/nvme0n1 print free | awk '/Free Space/ {print $2}' | tail -1 | sed 's/GB//')
-END_POS=$(parted /dev/nvme0n1 print free | awk '/Free Space/ {print $3}' | tail -1 | sed 's/GB//')
+START_POS=$(parted /dev/nvme0n1 print free | awk '/Free Space/ {print $1}' | tail -1 | sed 's/GB//')
+END_POS=$(parted /dev/nvme0n1 print free | awk '/Free Space/ {print $2}' | tail -1 | sed 's/GB//')
 #start_pos="${last_end}MiB"
 #end_pos="100%"
 echo "새 파티션 시작 위치: $START_POS GB, 종료 위치: $END_POS GB"
