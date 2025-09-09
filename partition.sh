@@ -17,7 +17,7 @@ fi
 MAIN=${MAIN:-main}
 DATA=${DATA:-data}
 DIR_NAME=${DIR_NAME:-directory}
-VG_MAIN="vg-$MAIN" 
+VG_MAIN="vg-$MAIN"
 LV_MAIN="lv-$MAIN"
 LVM_MAIN="lvm-$MAIN"
 VG_DATA="vg-$DATA"
