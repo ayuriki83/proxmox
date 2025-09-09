@@ -56,7 +56,7 @@ END_POS=$(parted /dev/$MAIN_DISK unit MiB print free | awk '/Free Space/ {print 
 echo "새 파티션 시작 위치: $START_POS MiB, 종료 위치: $END_POS MiB"
 
 # 실제 parted 파티션 생성
-parted /dev/$MAIN_DISK mkpart primary "${START_POS}MiB" "${END_POS}MiB"
+parted --script /dev/$MAIN_DISK unit MiB mkpart primary "${START_POS}MiB" "${END_POS}MiB"
 new_part_num=$(($last_part_num+1))
 new_part="/dev/${MAIN_DISK}p${new_part_num}"
 
