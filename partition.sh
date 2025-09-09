@@ -29,6 +29,7 @@ LVM_DATA="lvm-$DATA"
 echo "===== 메인 디스크(Linux LVM 잔여 공간) 파티션 생성 자동화 스크립트 ====="
 lsblk -o NAME,SIZE,TYPE,MOUNTPOINT
 echo
+: <<'END_COMMENT'
 read -p "메인 디스크명 입력(ex: nvme0n1, sda): " MAIN_DISK
 if [ -z "$MAIN_DISK" ]; then 
   echo "디스크명을 입력하세요."
@@ -62,7 +63,7 @@ vgcreate $VG_MAIN "$PARTITION"
 lvcreate -l 100%FREE -T $VG_MAIN/$LV_MAIN
 pvesm add lvmthin $LVM_MAIN --vgname $VG_MAIN --thinpool $LV_MAIN --content images,rootdir
 echo "pv/vg/lv까지 자동 생성 완료: pv($PARTITION), vg($VG_MAIN), lv($VG_MAIN/$LV_MAIN)"
-
+END_COMMENT
 echo
 echo "==== 보조/백업 디스크 선택 (미선택시 Enter) ===="
 lsblk -o NAME,SIZE,TYPE
@@ -70,12 +71,11 @@ read -p "보조/백업 디스크명 입력(ex: nvme1n1, sdb, skip=Enter): " SECO
 
 if [ -n "$SECOND_DISK" ]; then
   read -p "보조/백업 디스크 파티션 유형 선택 1:LinuxLVM 2:Directory [1/2]: " SECOND_TYPE
-
+  # 모든 시그니처 먼저 제거
+  wipefs -a /dev/$SECOND_DISK
+  # 파티션 테이블 생성(초기화) 및 LVM 설정
+  parted /dev/$SECOND_DISK --script mklabel gpt
   if [[ "$SECOND_TYPE" == "1" ]]; then
-    # 모든 시그니처 먼저 제거
-    wipefs -a /dev/$SECOND_DISK
-    # 파티션 테이블 생성(초기화) 및 LVM 설정
-    parted /dev/$SECOND_DISK --script mklabel gpt
     parted /dev/$SECOND_DISK --script mkpart primary 0% 100%
     parted /dev/$SECOND_DISK --script set 1 lvm on
     partprobe /dev/$SECOND_DISK
@@ -94,7 +94,6 @@ if [ -n "$SECOND_DISK" ]; then
     pvesm add lvmthin $LVM_DATA --vgname $VG_DATA --thinpool $LV_DATA --content images,rootdir
     echo "pv/vg/lv까지 자동 생성 완료: pv($PARTITION), vg($VG_DATA), lv($VG_DATA/$LV_DATA)"
   elif [[ "$SECOND_TYPE" == "2" ]]; then
-    parted /dev/$SECOND_DISK --script mklabel gpt
     parted /dev/$SECOND_DISK --script mkpart primary ext4 0% 100%
     partprobe /dev/$SECOND_DISK
     udevadm trigger
@@ -120,7 +119,7 @@ if [ -n "$SECOND_DISK" ]; then
     
     # 이미 /etc/fstab에 같은 UUID가 등록되어있는지 체크
     if ! grep -qs "UUID=$UUID $MOUNT_PATH" /etc/fstab; then
-      echo "UUID=$UUID $MOUNT_PATH ext4 defaults 0 2" >> /etc/fstab
+      echo "UUID=$UUID $MOUNT_PATH ext4 defaults 0 2" | tee -a /etc/fstab
     fi
     systemctl daemon-reload
     mount -a
