@@ -28,10 +28,12 @@ apt install curl wget htop tree rsync neofetch git vim parted nfs-common net-too
 ```
 
 ### Step3. proxmox 기본 설정파일 실행
-- ll alias 변경
+- root 사이즈 최대치 설정
+- alias 변경
 - AppArmor 비활성화
 - pve-filrewall 비활성화 및 ufw 활성화
 - USB장치를 통한 백업 이용시 자동 마운트 (옵션)
+- GPU 활성화
 ```bash
 # 
 mkdir -p /opt/proxmox && cd /opt/proxmox
