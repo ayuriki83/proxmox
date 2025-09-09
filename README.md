@@ -5,10 +5,11 @@
 - 헤놀로지 VM
 - rclone
 
-## 스크립트 목록 및 설명
+## 파일목록 및 설명
 
-| 스크립트 파일 | 설명 |
+| 파일 | 설명 |
 | --- | --- |
+| `proxmox.conf` | 환경설정 값 관리 |
 | `init.sh` | Proxmox 설치 후 초기 설정 값 대응 |
 | `partition.sh` | Proxmox 디스크 파티셔닝 및 PV, VG, LV, LVM 세팅 적용 |
 
@@ -44,6 +45,7 @@ apt install curl wget htop tree rsync neofetch git vim parted nfs-common net-too
 - GPU 활성화
 ```
 mkdir -p /tmp/proxmox && cd /tmp/proxmox
+curl -L -o proxmox.conf https://raw.githubusercontent.com/ayuriki83/proxmox/main/proxmox.conf
 curl -L -o init.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/init.sh
 chmod +x init.sh
 ./init.sh
@@ -56,7 +58,7 @@ chmod +x init.sh
 - 디렉토리 구성시 마운트 구성으로 대응
 ```
 mkdir -p /tmp/proxmox && cd /tmp/proxmox
-curl -L -o disk_env.config https://raw.githubusercontent.com/ayuriki83/proxmox/main/disk_env.config
+curl -L -o proxmox.conf https://raw.githubusercontent.com/ayuriki83/proxmox/main/proxmox.conf
 curl -L -o init.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/partition.sh
 chmod +x partition.sh
 ./partition.sh
