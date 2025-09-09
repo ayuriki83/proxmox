@@ -62,6 +62,7 @@ new_part="/dev/${MAIN_DISK}p${new_part_num}"
 
 # LVM 플래그 설정
 parted /dev/$MAIN_DISK --script set $new_part_num lvm on
+partprobe /dev/$MAIN_DISK
 echo "새 파티션 $new_part 생성 및 LVM 플래그 적용 완료."
 
 # pv, vg, lv 자동 생성
@@ -81,7 +82,8 @@ if [ -n "$SECOND_DISK" ]; then
   if [[ "$SECOND_TYPE" == "1" ]]; then
     parted /dev/$SECOND_DISK --script mklabel gpt
     parted /dev/$SECOND_DISK --script mkpart lvm 0% 100%
-    parted /dev/$SECOND_DISK --script set 1 lvm on    
+    parted /dev/$SECOND_DISK --script set 1 lvm on
+    partprobe /dev/$SECOND_DISK
     echo "보조/백업 디스크( $SECOND_DISK )를 Linux LVM 파티션으로 전체 할당 완료."
 
     # 보조 디스크 새 파티션 이름 자동 탐색
@@ -97,6 +99,7 @@ if [ -n "$SECOND_DISK" ]; then
   elif [[ "$SECOND_TYPE" == "2" ]]; then
     parted /dev/$SECOND_DISK --script mklabel gpt
     parted /dev/$SECOND_DISK --script mkpart primary ext4 0% 100%
+    partprobe /dev/$SECOND_DISK
     echo "보조/백업 디스크( $SECOND_DISK )를 Directory(ext4) 파티션으로 전체 할당 완료."
 
     # 파티션명이 변수로 들어왔다고 가정 (예: /dev/nvme1n1p1)
