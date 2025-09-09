@@ -61,3 +61,14 @@ curl -L -o init.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/part
 chmod +x partition.sh
 ./partition.sh
 ```
+
+#### 메인디스크에 Proxmox를 제외한 나머지 삭제하는 방법
+| 순번 | 설명 |
+| --- | --- |
+| A | pvesm -> vg -> pv 순으로 삭제해야함 |
+| B | `cat /etc/pve/storage.cfg` 명령어를 통해 나오는 pvesm 목록에서 명칭(1)과 vgname(2)을 확인 |
+| C | `pvs` 명령어를 통해 pv(3) 확인 |
+| D | pvesm remove (1) |
+| E | vgremove (2)    # vg삭제시 lv도 같이 삭제됨 |
+| F | pvremove (3) |
+| G | fdisk 에서 삭제 |
