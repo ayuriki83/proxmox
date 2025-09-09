@@ -49,7 +49,7 @@ echo "새 파티션 $PARTITION => 시작 위치: $START_POS MiB, 종료 위치: 
 
 # 실제 parted 파티션 생성 및 LVM 설정
 parted /dev/$MAIN_DISK --script unit MiB mkpart primary "${START_POS}MiB" "${END_POS}MiB"
-parted /dev/$MAIN_DISK --script set $NEW_PART_NUM lvm on
+parted /dev/$MAIN_DISK --script set $PART_NUM lvm on
 partprobe /dev/$MAIN_DISK
 udevadm trigger
 echo "새 파티션 $PARTITION 생성 및 LVM 플래그 적용 완료."
