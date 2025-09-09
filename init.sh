@@ -31,7 +31,7 @@ PORTS=(22 8006 45876) # SSH, Proxmox Web UI, Beszel agent
 for PORT in "${PORTS[@]}"; do
     ufw allow $PORT >/dev/null 2>&1
 done
-# 서버의 주요 인터페이스에서 현재 IP 추출 (예시: eth0, enp1s0 등 환경에 맞게 수정)
+# 서버의 주요 인터페이스에서 현재 IP 추출 (예시: eth0, enp1s0 등 환경에 맞게 수정) 
 CURRENT_IP=$(hostname -I | awk '{print $1}')
 INTERNAL_NETWORK="$(echo $CURRENT_IP | awk -F. '{print $1"."$2"."$3".0/24"}')"
 # 기본값으로 내부대역 CIDR 사용
