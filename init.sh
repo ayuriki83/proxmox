@@ -57,23 +57,21 @@ if [[ "$USE_USB" == "y" ]]; then
   read -p "USB 장치 이름을 입력하세요 (예: sda1): " USB_DEVICE
 
   MOUNT_POINT="/mnt/usb-backup"
-  mkdir -p "${MOUNT_POINT}"
+  mkdir -p "${MOUNT_POINT}" >/dev/null 2>&1
 
   echo "USB 장치 /dev/${USB_DEVICE} 을(를) ${MOUNT_POINT}에 마운트하도록 설정합니다."
   # fstab 중복 추가 방지
   if grep -q "/dev/${USB_DEVICE}" /etc/fstab; then
     echo "/dev/${USB_DEVICE} 에 대한 fstab 항목이 이미 존재합니다."
   else
-    echo "/dev/${USB_DEVICE} ${MOUNT_POINT} ext4 defaults 0 0" | sudo tee -a /etc/fstab
+    echo "/dev/${USB_DEVICE} ${MOUNT_POINT} ext4 defaults 0 0" | tee -a /etc/fstab
   fi
 
-  systemctl daemon-reload
-  mount -a
-
+  systemctl daemon-reload >/dev/null 2>&1
+  mount -a >/dev/null 2>&1
   echo "USB 장치 마운트 완료."
 
-  "Proxmox 저장소 usb-backup 등록..."
-  pvesm add dir usb-backup --path "${MOUNT_POINT}" --content images,iso,vztmpl,backup,rootdir
+  pvesm add dir usb-backup --path "${MOUNT_POINT}" --content images,iso,vztmpl,backup,rootdir >/dev/null 2>&1
   "Proxmox usb-backup 저장소 등록 완료."
 else
   echo "USB 장치 사용을 건너뜁니다."
