@@ -14,7 +14,27 @@ sudo systemctl disable apparmor
 sudo systemctl mask apparmor
 echo "AppArmor disabled."
 
-# 3. USB 사용 여부 선택
+# 3. 방화벽 설정
+echo "기존 pve-firewall 비활성화..."
+sudo systemctl stop pve-firewall
+sudo systemctl disable pve-firewall
+
+echo "ufw 설치 및 구성 시작..."
+sudo apt update
+sudo apt install -y ufw
+
+read -p "내부망 IP 대역을 입력하세요 (예: 192.168.0.0/24): " INTERNAL_NETWORK
+
+sudo ufw allow 22       # SSH
+sudo ufw allow 8006     # Proxmox Web UI
+sudo ufw allow 45876    # Beszel agent
+sudo ufw allow from "$INTERNAL_NETWORK"
+sudo ufw --force enable
+
+echo "방화벽 설정이 완료되었습니다."
+sudo ufw status verbose
+
+# 4. USB 사용 여부 선택
 read -p "USB 장치를 사용하시겠습니까? (Y/N): " USE_USB
 USE_USB=$(echo "$USE_USB" | tr '[:upper:]' '[:lower:]')
 
@@ -47,24 +67,3 @@ if [[ "$USE_USB" == "y" ]]; then
 else
   echo "USB 장치 사용을 건너뜁니다."
 fi
-
-# 4. 방화벽 설정
-echo "기존 pve-firewall 비활성화..."
-sudo systemctl stop pve-firewall
-sudo systemctl disable pve-firewall
-
-echo "ufw 설치 및 구성 시작..."
-sudo apt update
-sudo apt install -y ufw
-
-read -p "내부망 IP 대역을 입력하세요 (예: 192.168.0.0/24): " INTERNAL_NETWORK
-
-sudo ufw allow 22       # SSH
-sudo ufw allow 8006     # Proxmox Web UI
-sudo ufw allow 45876    # Beszel agent
-sudo ufw allow from "$INTERNAL_NETWORK"
-
-sudo ufw --force enable
-
-echo "방화벽 설정이 완료되었습니다."
-sudo ufw status verbose
