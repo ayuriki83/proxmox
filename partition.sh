@@ -8,7 +8,7 @@
 set -e
 
 # 설정 파일 위치 지정 (스크립트와 같은 디렉토리 등)
-CONFIG_FILE="./disk_env.config"
+CONFIG_FILE="./proxmox.conf"
 if [ -f "$CONFIG_FILE" ]; then
     source "$CONFIG_FILE"
 else
