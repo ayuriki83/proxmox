@@ -16,7 +16,6 @@
 ### Step0. alias 적용
 ```
 echo "alias ls='ls --color=auto --show-control-chars'" >> ~/.bashrc
-echo "alias l='ls -al --color=auto --show-control-chars'" >> ~/.bashrc
 echo "alias ll='ls -al --color=auto --show-control-chars'" >> ~/.bashrc
 source ~/.bashrc
 ```
