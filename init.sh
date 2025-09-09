@@ -2,10 +2,23 @@
 
 set -e
 
+# 0. root 사이즈 변경
+BEFORE_SIZE_GB=$(lsblk -b /dev/mapper/pve-root -o SIZE -n | awk '{printf "%.2f", $1/1024/1024/1024}')
+echo "작업 전 용량: ${BEFORE_SIZE_GB} GB"
+
+sudo lvresize -l +100%FREE /dev/pve/root
+sudo resize2fs /dev/mapper/pve-root
+
+AFTER_SIZE_GB=$(lsblk -b /dev/mapper/pve-root -o SIZE -n | awk '{printf "%.2f", $1/1024/1024/1024}')
+echo "작업 후 용량: ${AFTER_SIZE_GB} GB"
+
 # 1. 영구 alias 설정
+echo "alias ls='ls --color=auto --show-control-chars'" >> ~/.bashrc
+echo "alias l='ls -al --color=auto --show-control-chars'" >> ~/.bashrc
+echo "alias ll='ls -al --color=auto --show-control-chars'" >> ~/.bashrc
 echo "alias ll='ls -lah --color=auto'" >> ~/.bashrc
 source ~/.bashrc
-echo "alias 'll' set in ~/.bashrc and applied immediately."
+echo "alias set in ~/.bashrc and applied immediately."
 
 # 2. AppArmor 비활성화
 echo "Disabling AppArmor..."
