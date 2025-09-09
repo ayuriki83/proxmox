@@ -59,14 +59,12 @@ echo "새 파티션 시작 위치: $START_POS GB, 종료 위치: $END_POS GB"
 
 # 실제 parted 파티션 생성
 #parted /dev/$MAIN_DISK --script mkpart lvm $start_pos $end_pos
-parted /dev/$MAIN_DISK mkpart primary lvm "${START_POS}GB" "${END_POS}GB"
+parted /dev/$MAIN_DISK mkpart primary "${START_POS}GB" "${END_POS}GB"
 new_part_num=$(($last_part_num+1))
 new_part="/dev/${MAIN_DISK}p${new_part_num}"
-echo "$new_part"
-echo "----------------"
 
 # LVM 플래그 설정
-#parted /dev/$MAIN_DISK --script set $new_part_num lvm on
+parted /dev/$MAIN_DISK --script set $new_part_num lvm on
 partprobe /dev/$MAIN_DISK
 udevadm trigger
 echo "새 파티션 $new_part 생성 및 LVM 플래그 적용 완료."
