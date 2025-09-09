@@ -31,8 +31,16 @@ PORTS=(22 8006 45876) # SSH, Proxmox Web UI, Beszel agent
 for PORT in "${PORTS[@]}"; do
     ufw allow $PORT >/dev/null 2>&1
 done
-read -p "내부망 IP 대역을 입력하세요 (예: 192.168.0.0/24): " INTERNAL_NETWORK
-ufw allow from "$INTERNAL_NETWORK" >/dev/null 2>&1
+# 서버의 주요 인터페이스에서 현재 IP 추출 (예시: eth0, enp1s0 등 환경에 맞게 수정)
+CURRENT_IP=$(hostname -I | awk '{print $1}')
+INTERNAL_NETWORK="$(echo $CURRENT_IP | awk -F. '{print $1"."$2"."$3".0/24"}')"
+# 기본값으로 내부대역 CIDR 사용
+read -e -i "$INTERNAL_NETWORK" -p "내부망 IP 대역을 입력하세요 (엔터 시 자동: $INTERNAL_NETWORK): " USER_NETWORK
+# 입력값이 비었으면 자동으로 내부대역을 할당
+if [ -z "$USER_NETWORK" ]; then
+  USER_NETWORK="$INTERNAL_NETWORK"
+fi
+ufw allow from "$USER_NETWORK" >/dev/null 2>&1
 ufw --force enable >/dev/null 2>&1
 echo "방화벽 설정이 완료되었습니다. 적용현황은 다음과 같습니다."
 ufw status verbose
