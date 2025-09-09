@@ -31,7 +31,7 @@ systemctl stop pve-firewall >/dev/null 2>&1
 systemctl disable pve-firewall >/dev/null 2>&1
 echo "기존 pve-firewall 비활성화"
 
-apt update && apt install -y ufw >/dev/null 2>&1
+apt update >/dev/null 2>&1 && apt install -y ufw >/dev/null 2>&1
 echo "ufw 설치완료"
 
 PORTS=(22 8006 45876) # SSH, Proxmox Web UI, Beszel agent
