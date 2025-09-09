@@ -2,6 +2,17 @@
 
 set -e
 
+# 설정 파일 위치 지정 (스크립트와 같은 디렉토리 등)
+CONFIG_FILE="./proxmox.conf"
+if [ -f "$CONFIG_FILE" ]; then
+    source "$CONFIG_FILE"
+else
+    echo "설정 파일 $CONFIG_FILE 이(가) 없습니다. 기본값 사용."
+fi
+
+# 환경변수 기본값 지정 (설정파일에 없을 경우 대비)
+USB_MOUNT=${USB_MOUNT:-usb-backup} 
+
 echo "==> 0. root 사이즈 변경"
 BEFORE_SIZE_GB=$(lsblk -b /dev/mapper/pve-root -o SIZE -n | awk '{printf "%.2f", $1/1024/1024/1024}')
 echo "작업 전 용량: ${BEFORE_SIZE_GB} GB"
@@ -57,7 +68,7 @@ if [[ "$USE_USB" == "y" ]]; then
 
   read -p "USB 장치 이름을 입력하세요 (예: sda1): " USB_DEVICE
 
-  MOUNT_POINT="/mnt/usb-backup"
+  MOUNT_POINT="/mnt/$USB_MOUNT"
   mkdir -p "${MOUNT_POINT}" >/dev/null 2>&1
   mkfs.ext4 "/dev/${USB_DEVICE}" >/dev/null 2>&1
   echo "USB 장치 /dev/${USB_DEVICE} 을(를) ${MOUNT_POINT}에 마운트하도록 설정합니다."
