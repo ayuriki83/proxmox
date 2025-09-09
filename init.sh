@@ -65,7 +65,7 @@ if [[ "$USE_USB" == "y" ]]; then
   echo "USB 장치 마운트 완료."
 
   pvesm add dir usb-backup --path "${MOUNT_POINT}" --content images,iso,vztmpl,backup,rootdir
-  "Proxmox usb-backup 저장소 등록 완료."
+  echo "Proxmox usb-backup 저장소 등록 완료."
 else
   echo "USB 장치 사용을 건너뜁니다."
 fi
