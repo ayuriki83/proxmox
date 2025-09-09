@@ -8,24 +8,27 @@
 | --- | --- |
 | `init.sh` | Proxmox 설치 후 초기 설정 값 대응 |
 
+### Step1. Proxmox Repository 변경 및 업데이트
+```
+cp /etc/apt/sources.list.d/pve-enterprise.list /etc/apt/sources.list.d/pve-enterprise.list.bak && \
+echo "deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription" | tee /etc/apt/sources.list.d/pve-enterprise.list
 
+cp /etc/apt/sources.list.d/ceph.list /etc/apt/sources.list.d/ceph.list.bak && \
+echo "deb http://download.proxmox.com/debian/ceph-quincy bookworm no-subscription" | tee /etc/apt/sources.list.d/ceph.list
 
-### 스크립트 실행
-각 스크립트는 저장소를 클론한 후 직접 실행하거나, curl로 바로 다운로드하여 사용할 수 있습니다.
-
-#### 방법 1: 저장소 클론 후 실행
-```bash
-git clone https://github.com/ayuriki83/proxmox.git
-cd proxmox
-chmod +x *.sh
-# 원하는 스크립트 실행
-./init.sh
+apt update && apt upgrade -y
 ```
 
-#### 방법 2: 스크립트 직접 다운로드 및 실행
+### Step2. apt update 및 필수 도구 설치
+```
+apt install curl wget htop tree rsync neofetch git vim parted nfs-common net-tools -y
+```
+
+### Step3. proxmox 기본 설정파일 실행
 ```bash
-# Xpenology VM 자동 설치
-curl -o pve_xpenol_install.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/pve_xpenol_install.sh
-chmod +x pve_xpenol_install.sh
-./pve_xpenol_install.sh
+# 
+mkdir -p /opt/proxmox & cd /opt/proxmox
+curl -o init.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/init.sh
+chmod +x init.sh
+./init.sh
 ```
