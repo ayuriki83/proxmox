@@ -80,7 +80,8 @@ if [ -n "$SECOND_DISK" ]; then
     echo "보조/백업 디스크( $SECOND_DISK )를 Linux LVM 파티션으로 전체 할당 완료."
 
     # 보조 디스크 새 파티션 이름 자동 탐색
-    PARTITION=$(lsblk /dev/$SECOND_DISK | awk '/part/ {print $1}' | tail -n1)
+    PARTITION=$(lsblk -nr -o NAME /dev/$SECOND_DISK | grep -v "^$SECOND_DISK$" | tail -n1)
+    #PARTITION=$(lsblk /dev/$SECOND_DISK | awk '/part/ {print $1}' | tail -n1)
     PARTITION="/dev/$PARTITION"
 
     # pv, vg, lv 생성(보조 디스크)
