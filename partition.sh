@@ -138,5 +138,5 @@ else
 fi
 
 echo
-echo "==== 최종 파티션 상태 확인 ===="
+echo "===== 최종 파티션 상태 확인 ====="
 lsblk -o NAME,SIZE,TYPE,MOUNTPOINT
