@@ -101,7 +101,7 @@ if [ -n "$SECOND_DISK" ]; then
     # 보조 디스크 새 파티션 이름 자동 탐색
     PARTITION=$(lsblk -nr -o NAME /dev/$SECOND_DISK | grep -v "^$SECOND_DISK$" | tail -n1)
     PARTITION="/dev/$PARTITION"
-    MOUNT_PATH="/mnt/$DIRECTORY"
+    MOUNT_PATH="/mnt/$DIR_NAME"
     
     # 마운트경로 생성 및 파티션 ext4로 초기화
     mkdir -p "$MOUNT_PATH" >/dev/null 2>&1
