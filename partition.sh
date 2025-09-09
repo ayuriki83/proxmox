@@ -42,7 +42,7 @@ fi
 echo "마지막 파티션 번호: $last_part_num (새 파티션은 $(($last_part_num+1))번)"
 
 echo "메인 디스크의 현재 파티션 현황 및 빈 공간 확인:"
-parted /dev/$MAIN_DISK print free
+parted /dev/$MAIN_DISK unit MiB print free
 
 # 자동으로 마지막 파티션의 끝 위치를 MiB 단위로 가져옴
 last_end=$(parted /dev/$MAIN_DISK unit MiB print | \
@@ -51,15 +51,12 @@ if [ -z "$last_end" ]; then
   echo "파티션 정보를 가져올 수 없습니다. 처음부터 생성한다고 가정하고 시작 위치 1MiB 적용"
   last_end=1
 fi
-START_POS=$(parted /dev/nvme0n1 print free | awk '/Free Space/ {print $1}' | tail -1 | sed 's/GB//')
-END_POS=$(parted /dev/nvme0n1 print free | awk '/Free Space/ {print $2}' | tail -1 | sed 's/GB//')
-#start_pos="${last_end}MiB"
-#end_pos="100%"
-echo "새 파티션 시작 위치: $START_POS GB, 종료 위치: $END_POS GB"
+START_POS=$(parted /dev/$MAIN_DISK unit MiB print free | awk '/Free Space/ {print $1}' | tail -1 | sed 's/MiB//')
+END_POS=$(parted /dev/$MAIN_DISK unit MiB print free | awk '/Free Space/ {print $2}' | tail -1 | sed 's/MiB//')
+echo "새 파티션 시작 위치: $START_POS MiB, 종료 위치: $END_POS MiB"
 
 # 실제 parted 파티션 생성
-#parted /dev/$MAIN_DISK --script mkpart lvm $start_pos $end_pos
-parted /dev/$MAIN_DISK mkpart primary "${START_POS}GB" "${END_POS}GB"
+parted /dev/$MAIN_DISK mkpart primary "${START_POS}MiB" "${END_POS}MiB"
 new_part_num=$(($last_part_num+1))
 new_part="/dev/${MAIN_DISK}p${new_part_num}"
 
