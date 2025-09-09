@@ -26,53 +26,40 @@ LVM_DATA="lvm-$DATA"
 
 echo "===== 메인 디스크(Linux LVM 잔여 공간) 파티션 생성 자동화 스크립트 ====="
 lsblk -o NAME,SIZE,TYPE,MOUNTPOINT
+echo
 read -p "메인 디스크명 입력(ex: nvme0n1, sda): " MAIN_DISK
-
 if [ -z "$MAIN_DISK" ]; then
   echo "디스크명을 입력하세요."
   exit 1
 fi
 
 # 마지막 파티션 번호 자동 추출 (예: p3)
-last_part_num=$(lsblk /dev/$MAIN_DISK | awk '/part/ {print $1}' | tail -n1 | grep -oP "${MAIN_DISK}p\K[0-9]+")
-if [ -z "$last_part_num" ]; then
+LAST_PART_NUM=$(lsblk /dev/$MAIN_DISK | awk '/part/ {print $1}' | tail -n1 | grep -oP "${MAIN_DISK}p\K[0-9]+")
+if [ -z "$LAST_PART_NUM" ]; then
   echo "파티션 번호를 찾을 수 없습니다."
   exit 1
 fi
-echo "마지막 파티션 번호: $last_part_num (새 파티션은 $(($last_part_num+1))번)"
-
-echo "메인 디스크의 현재 파티션 현황 및 빈 공간 확인:"
-parted /dev/$MAIN_DISK unit MiB print free
-
-# 자동으로 마지막 파티션의 끝 위치를 MiB 단위로 가져옴
-last_end=$(parted /dev/$MAIN_DISK unit MiB print | \
-  awk '/^ / && $1 ~ /^[0-9]+$/ {end=$3} END {print end}' | sed 's/MiB//')
-if [ -z "$last_end" ]; then
-  echo "파티션 정보를 가져올 수 없습니다. 처음부터 생성한다고 가정하고 시작 위치 1MiB 적용"
-  last_end=1
-fi
+PART_NUM=$(($LAST_PART_NUM+1))
+PARTITION="/dev/${MAIN_DISK}p${PART_NUM}"
 START_POS=$(parted /dev/$MAIN_DISK unit MiB print free | awk '/Free Space/ {print $1}' | tail -1 | sed 's/MiB//')
 END_POS=$(parted /dev/$MAIN_DISK unit MiB print free | awk '/Free Space/ {print $2}' | tail -1 | sed 's/MiB//')
-echo "새 파티션 시작 위치: $START_POS MiB, 종료 위치: $END_POS MiB"
+echo "새 파티션 $PARTITION => 시작 위치: $START_POS MiB, 종료 위치: $END_POS MiB"
 
-# 실제 parted 파티션 생성
+# 실제 parted 파티션 생성 및 LVM 설정
 parted --script /dev/$MAIN_DISK unit MiB mkpart primary "${START_POS}MiB" "${END_POS}MiB"
-new_part_num=$(($last_part_num+1))
-new_part="/dev/${MAIN_DISK}p${new_part_num}"
-
-# LVM 플래그 설정
-parted /dev/$MAIN_DISK --script set $new_part_num lvm on
+parted --script /dev/$MAIN_DISK set $NEW_PART_NUM lvm on
 partprobe /dev/$MAIN_DISK
 udevadm trigger
-echo "새 파티션 $new_part 생성 및 LVM 플래그 적용 완료."
+echo "새 파티션 $PARTITION 생성 및 LVM 플래그 적용 완료."
 
 # pv, vg, lv 자동 생성
-pvcreate "$new_part"
-vgcreate $VG_MAIN "$new_part"
+pvcreate "$PARTITION"
+vgcreate $VG_MAIN "$PARTITION"
 lvcreate -l 100%FREE -T $VG_MAIN/$LV_MAIN
 pvesm add lvmthin $LVM_MAIN --vgname $VG_MAIN --thinpool $LV_MAIN --content images,rootdir
-echo "pv/vg/lv까지 자동 생성 완료: pv($new_part), vg($VG_MAIN), lv($VG_MAIN/$LV_MAIN)"
+echo "pv/vg/lv까지 자동 생성 완료: pv($PARTITION), vg($VG_MAIN), lv($VG_MAIN/$LV_MAIN)"
 
+echo
 echo "==== 보조/백업 디스크 선택 (미선택시 Enter) ===="
 lsblk -o NAME,SIZE,TYPE
 read -p "보조/백업 디스크명 입력(ex: nvme1n1, sdb, skip=Enter): " SECOND_DISK
