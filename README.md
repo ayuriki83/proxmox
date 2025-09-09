@@ -27,7 +27,7 @@ apt install curl wget htop tree rsync neofetch git vim parted nfs-common net-too
 ### Step3. proxmox 기본 설정파일 실행
 ```bash
 # 
-mkdir -p /opt/proxmox & cd /opt/proxmox
+mkdir -p /opt/proxmox && cd /opt/proxmox
 curl -o init.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/init.sh
 chmod +x init.sh
 ./init.sh
