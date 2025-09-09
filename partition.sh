@@ -51,9 +51,11 @@ if [ -z "$last_end" ]; then
   echo "파티션 정보를 가져올 수 없습니다. 처음부터 생성한다고 가정하고 시작 위치 1MiB 적용"
   last_end=1
 fi
-start_pos="${last_end}MiB"
-end_pos="100%"
-echo "새 파티션 시작 위치: $start_pos, 종료 위치: $end_pos"
+START_POS=$(parted /dev/nvme0n1 print free | awk '/Free Space/ {start=$2; end=$3} END{print start}' | sed 's/GB//')
+END_POS=$(parted /dev/nvme0n1 print free | awk '/Free Space/ {start=$2; end=$3} END{print end}' | sed 's/GB//')
+#start_pos="${last_end}MiB"
+#end_pos="100%"
+echo "새 파티션 시작 위치: $START_POS, 종료 위치: $END_POS"
 
 # 실제 parted 파티션 생성
 parted /dev/$MAIN_DISK --script mkpart lvm $start_pos $end_pos
