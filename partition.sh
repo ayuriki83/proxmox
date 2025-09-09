@@ -30,7 +30,7 @@ echo "===== 메인 디스크(Linux LVM 잔여 공간) 파티션 생성 자동화
 lsblk -o NAME,SIZE,TYPE,MOUNTPOINT
 echo
 read -p "메인 디스크명 입력(ex: nvme0n1, sda): " MAIN_DISK
-if [ -z "$MAIN_DISK" ]; then
+if [ -z "$MAIN_DISK" ]; then 
   echo "디스크명을 입력하세요."
   exit 1
 fi
