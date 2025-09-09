@@ -31,7 +31,7 @@ systemctl stop pve-firewall >/dev/null 2>&1
 systemctl disable pve-firewall >/dev/null 2>&1
 echo "기존 pve-firewall 비활성화"
 
-apt update -qq < /dev/null
+script -q -c "apt update -qq" /dev/null
 apt install -y ufw >/dev/null 2>&1
 echo "ufw 설치완료"
 
