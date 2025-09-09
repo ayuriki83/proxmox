@@ -84,7 +84,6 @@ if [ -n "$SECOND_DISK" ]; then
 
     # 보조 디스크 새 파티션 이름 자동 탐색
     PARTITION=$(lsblk -nr -o NAME /dev/$SECOND_DISK | grep -v "^$SECOND_DISK$" | tail -n1)
-    #PARTITION=$(lsblk /dev/$SECOND_DISK | awk '/part/ {print $1}' | tail -n1)
     PARTITION="/dev/$PARTITION"
 
     # pv, vg, lv 생성(보조 디스크)
@@ -99,10 +98,14 @@ if [ -n "$SECOND_DISK" ]; then
     udevadm trigger
     echo "보조/백업 디스크( $SECOND_DISK )를 Directory(ext4) 파티션으로 전체 할당 완료."
 
-    # 파티션명이 변수로 들어왔다고 가정 (예: /dev/nvme1n1p1)
-    PARTITION=$(lsblk /dev/$SECOND_DISK | awk '/part/ {print $1}' | tail -n1)
+    # 보조 디스크 새 파티션 이름 자동 탐색
+    PARTITION=$(lsblk -nr -o NAME /dev/$SECOND_DISK | grep -v "^$SECOND_DISK$" | tail -n1)
     PARTITION="/dev/$PARTITION"
     MOUNT_PATH="/mnt/$DIRECTORY"
+    
+    # 마운트경로 생성 및 파티션 ext4로 초기화
+    mkdir -p "$MOUNT_PATH" >/dev/null 2>&1
+    mkfs.ext4 "$PARTITION" >/dev/null 2>&1
     
     # 실제 UUID 값 조회
     UUID=$(blkid -s UUID -o value "$PARTITION")
@@ -110,12 +113,6 @@ if [ -n "$SECOND_DISK" ]; then
       echo "UUID를 찾을 수 없습니다: $PARTITION"
       exit 1
     fi
-    
-    # 마운트경로 생성
-    mkdir -p "$MOUNT_PATH"
-
-    # Directory 지정 시 파티션을 ext4로 초기화
-    mkfs.ext4 "$PARTITION"
     
     # 이미 /etc/fstab에 같은 UUID가 등록되어있는지 체크
     if ! grep -qs "UUID=$UUID $MOUNT_PATH" /etc/fstab; then
