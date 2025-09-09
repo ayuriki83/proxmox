@@ -1,6 +1,9 @@
 # For Proxmox with AMD 5825u
 
-개인 서버 환경 구성을 위한 스크립트 모음입니다.
+홈서버 구성을 위한 가이드!
+- Ubuntu (with docker)
+- 헤놀로지 VM
+- rclone
 
 ## 스크립트 목록 및 설명
 
