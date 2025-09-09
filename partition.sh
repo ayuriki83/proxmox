@@ -43,6 +43,7 @@ PART_NUM=$(($LAST_PART_NUM+1))
 PARTITION="/dev/${MAIN_DISK}p${PART_NUM}"
 START_POS=$(parted /dev/$MAIN_DISK unit MiB print free | awk '/Free Space/ {print $1}' | tail -1 | sed 's/MiB//')
 END_POS=$(parted /dev/$MAIN_DISK unit MiB print free | awk '/Free Space/ {print $2}' | tail -1 | sed 's/MiB//')
+END_POS=$(expr $END_POS - 1)
 echo "새 파티션 $PARTITION => 시작 위치: $START_POS MiB, 종료 위치: $END_POS MiB"
 
 # 실제 parted 파티션 생성 및 LVM 설정
