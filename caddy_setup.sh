@@ -68,6 +68,9 @@ init() {
     # proxmox.conf 파일을 다시 소싱하여 BASE_DOMAIN 변수 적용
     load_config
 
+    # 브릿지 네트워크 명칭
+    DOCKER_BRIDGE_NM=${DOCKER_BRIDGE_NM:-ProxyNet}
+
     read -p "4. Proxmox 내부IP:PORT (예: 192.168.0.3:8006) 입력 : " PROXMOX_IP_PORT
     validate_input "$PROXMOX_IP_PORT" "Proxmox 내부IP:PORT"
 
@@ -117,7 +120,7 @@ volumes:
 networks:
   default:
     external: true
-    name: ProxyNet
+    name: ${DOCKER_BRIDGE_NM}
 EOF
 
     # Caddyfile 생성
