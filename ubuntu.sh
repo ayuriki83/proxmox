@@ -9,9 +9,9 @@ set -e
 for LINE in \
   "alias ls='ls --color=auto --show-control-chars'" \
   "alias ll='ls -al --color=auto --show-control-chars'" \
-  "log() { echo \"[\$(date '+%T')] \$*\"; }" \
-  "info() { echo \"[INFO][\$(date '+%T')] \$*\"; }" \
-  "err() { echo \"[ERROR][\$(date '+%T')] \$*\"; }"
+  "log() { echo \"[$(date '+%T')] $*\"; }" \
+  "info() { echo \"[INFO][$(date '+%T')] $*\"; }" \
+  "err() { echo \"[ERROR][$(date '+%T')] $*\"; }"
 do
   grep -q "${LINE}" /root/.bashrc || echo "${LINE}" >> /root/.bashrc
 done
@@ -54,7 +54,7 @@ BASIC_APT=${BASIC_APT:-"curl wget htop tree neofetch git vim net-tools nfs-commo
 ALLOW_PORTS=${ALLOW_PORTS:-"80/tcp 443/tcp 443/udp 45876 5574 9999 32400"}
 
 step() { log "==> STEP $1: $2"; }
-error_exit() { err $1; exit 1; }
+error_exit() { err "$1"; exit 1; }
 
 step 1 "Ubuntu 템플릿 준비"
 LATEST_TEMPLATE=$(pveam available --section system | awk '/ubuntu-22.04-standard/ {print $2}' | sort -V | tail -1)
@@ -86,12 +86,12 @@ pct create $CT_ID $TEMPLATE \
 
 step 3 "RCLONE LV생성(ext4) 및 LXC 설정 적용"
 lv_path="/dev/${VG_NAME}/${LV_RCLONE}"
-if ! lvs $lv_path > /dev/null 2>&1; then
-  lvcreate -V $RCLONE_SIZE -T ${VG_NAME}/${LV_NAME} -n $LV_RCLONE || error_exit "LV 생성 실패"
-  mkfs.ext4 $lv_path || error_exit "ext4 생성 실패"
+if ! lvs "$lv_path" > /dev/null 2>&1; then
+  lvcreate -V "$RCLONE_SIZE" -T "${VG_NAME}/${LV_NAME}" -n "$LV_RCLONE" || error_exit "LV 생성 실패"
+  mkfs.ext4 "$lv_path" || error_exit "ext4 생성 실패"
 fi
 LXC_CONF="/etc/pve/lxc/${CT_ID}.conf"
-cat >> $LXC_CONF <<EOF
+cat >> "$LXC_CONF" <<EOF
 mp0: $lv_path,mp=$MOUNT_POINT
 lxc.cgroup2.devices.allow: c 10:229 rwm
 lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file
@@ -105,13 +105,13 @@ info "GPU 종류를 선택하세요: 1) AMD(내장/외장)   2) Intel(내장/외
 read -p "선택 (1/2/3): " GPU_CHOICE
 case "$GPU_CHOICE" in
   1|2)
-    cat >> $LXC_CONF <<EOF
+    cat >> "$LXC_CONF" <<EOF
 lxc.cgroup2.devices.allow: c 226:* rwm
 lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir
 EOF
     ;;
   3)
-    cat >> $LXC_CONF <<EOF
+    cat >> "$LXC_CONF" <<EOF
 lxc.cgroup2.devices.allow: c 195:* rwm
 lxc.mount.entry: /dev/nvidia0 dev/nvidia0 none bind,optional,create=file
 lxc.mount.entry: /dev/nvidiactl dev/nvidiactl none bind,optional,create=file
@@ -127,14 +127,15 @@ pct start $CT_ID > /dev/null 2>&1 || error_exit "컨테이너 시작 실패"
 sleep 5
 
 step 6 "LXC 컨테이너 시스템/패키지 업데이트 및 필수 구성요소 설치"
-pct exec $CT_ID -- bash -c "
+SCRIPT_STEP_6="
 set -e
 apt-get update -qq > /dev/null 2>&1 && apt-get upgrade -y > /dev/null 2>&1
 apt-get install $BASIC_APT dnsutils -y > /dev/null 2>&1
 "
+pct exec $CT_ID -- bash -c "$SCRIPT_STEP_6"
 
 step 7 "LXC 컨테이너 AppArmor비활성화/한글폰트 및 로케일/시간설정"
-pct exec $CT_ID -- bash -c "
+SCRIPT_STEP_7="
 set -e
 (
   systemctl stop apparmor || true
@@ -147,20 +148,21 @@ update-locale LANG=$LOCALE_LANG > /dev/null 2>&1
 echo -e 'export LANG=$LOCALE_LANG\nexport LANGUAGE=$LOCALE_LANG\nexport LC_ALL=$LOCALE_LANG' >> /root/.bashrc
 echo -e 'export LANG=$LOCALE_LANG\nexport LANGUAGE=$LOCALE_LANG\nexport LC_ALL=$LOCALE_LANG' >> /root/.bashrc
 for LINE in \
-  "alias ls='ls --color=auto --show-control-chars'" \
-  "alias ll='ls -al --color=auto --show-control-chars'" \
-  "log() { echo \"[\$(date '+%T')] \$*\"; }" \
-  "info() { echo \"[INFO][\$(date '+%T')] \$*\"; }" \
-  "err() { echo \"[ERROR][\$(date '+%T')] \$*\"; }"
+  \"alias ls='ls --color=auto --show-control-chars'\" \
+  \"alias ll='ls -al --color=auto --show-control-chars'\" \
+  \"log() { echo \\\"[\\\$(date '+%T')] \\\$*\\\"; }\" \
+  \"info() { echo \\\"[INFO][\\\$(date '+%T')] \\\$*\\\"; }\" \
+  \"err() { echo \\\"[ERROR][\\\$(date '+%T')] \\\$*\\\"; }\"
 do
-  grep -q "${LINE}" /root/.bashrc || echo "${LINE}" >> /root/.bashrc
+  grep -q \"\${LINE}\" /root/.bashrc || echo \"\${LINE}\" >> /root/.bashrc
 done
 source /root/.bashrc
 timedatectl set-timezone $TIMEZONE > /dev/null 2>&1
 "
+pct exec $CT_ID -- bash -c "$SCRIPT_STEP_7"
 
 step 8 "LXC 컨테이너 GPU 설정 및 드라이버"
-pct exec $CT_ID -- bash -c "
+SCRIPT_STEP_8="
 set -e
 case \"$GPU_CHOICE\" in
   1)
@@ -176,14 +178,15 @@ case \"$GPU_CHOICE\" in
     ;;
 esac
 "
+pct exec $CT_ID -- bash -c "$SCRIPT_STEP_8"
 
 step 9 "LXC 컨테이너 Docker 및 Daemon 세팅, 브릿지 네트워크 생성"
-pct exec $CT_ID -- bash -c "
+SCRIPT_STEP_9="
 set -e
 apt-get install docker.io docker-compose-v2 -y > /dev/null 2>&1
 systemctl enable docker
 systemctl start docker
-mkdir -p $(dirname $DOCKER_DATA_ROOT) /etc/docker
+mkdir -p $(dirname "$DOCKER_DATA_ROOT") /etc/docker
 cat > /etc/docker/daemon.json <<EOF
 {
   \"data-root\": \"$DOCKER_DATA_ROOT\",
@@ -198,20 +201,22 @@ EOF
 systemctl restart docker
 docker network create --subnet=$DOCKER_BRIDGE_NET --gateway=$DOCKER_BRIDGE_GW $DOCKER_BRIDGE_NM > /dev/null 2>&1 || true
 "
+pct exec $CT_ID -- bash -c "$SCRIPT_STEP_9"
 
 step 10 "LXC 컨테이너 방화벽(UFW) 설정"
-pct exec $CT_ID -- bash -c "
+SCRIPT_STEP_10="
 set -e
 apt-get install ufw -y > /dev/null 2>&1
 for PORT in $ALLOW_PORTS; do ufw allow \$PORT > /dev/null 2>&1; done
 ufw allow from $INTERNAL_NET > /dev/null 2>&1
 ufw allow from $DOCKER_BRIDGE_NET > /dev/null 2>&1
 ufw --force enable > /dev/null 2>&1
-dig @8.8.8.8 google.com +short | grep -qE '([0-9]{1,3}\\.){3}[0-9]{1,3}' || err '[CT] DNS 쿼리 실패'
+dig @8.8.8.8 google.com +short | grep -qE '([0-9]{1,3}\.){3}[0-9]{1,3}' || err '[CT] DNS 쿼리 실패'
 "
+pct exec $CT_ID -- bash -c "$SCRIPT_STEP_10"
 
 step 11 "LXC 컨테이너 NAT/UFW rule적용 (DOCKER)"
-pct exec $CT_ID -- bash -c "
+SCRIPT_STEP_11="
 set -e
 NAT_IFACE=\$(ip route | awk '/default/ {print \$5; exit}')
 if ! iptables -t nat -C POSTROUTING -s $DOCKER_BRIDGE_NET -o \$NAT_IFACE -j MASQUERADE 2>/dev/null
@@ -223,9 +228,10 @@ UFW_AFTER_RULES=\"/etc/ufw/after.rules\"
 if ! grep -q \"^:DOCKER-USER\" \$UFW_AFTER_RULES
 then
   cp \$UFW_AFTER_RULES \${UFW_AFTER_RULES}.bak
-  sed -i '/^COMMIT/i :DOCKER-USER - [0:0]\\n-A DOCKER-USER -j RETURN' \$UFW_AFTER_RULES
+  sed -i '/^COMMIT/i :DOCKER-USER - [0:0]\n-A DOCKER-USER -j RETURN' \$UFW_AFTER_RULES
   ufw reload > /dev/null 2>&1
 fi
 "
+pct exec $CT_ID -- bash -c "$SCRIPT_STEP_11"
 
 log "==> 전체 LXC 자동화 완료!"
