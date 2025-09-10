@@ -1,12 +1,28 @@
 #!/bin/bash
+
+##########################
+# Proxmox Ubuntu 설치 자동화
+##########################
+
 set -e
 
-# --- [환경변수] ---
+for LINE in \
+  "alias ls='ls --color=auto --show-control-chars'" \
+  "alias ll='ls -al --color=auto --show-control-chars'" \
+  "log() { echo \"[\$(date '+%T')] \$*\"; }" \
+  "info() { echo \"[INFO][\$(date '+%T')] \$*\"; }" \
+  "err() { echo \"[ERROR][\$(date '+%T')] \$*\"; }"
+do
+  grep -q "${LINE}" /root/.bashrc || echo "${LINE}" >> /root/.bashrc
+done
+source /root/.bashrc
+
+# 설정 파일 위치 지정 (스크립트와 같은 디렉토리 등)
 CONFIG_FILE="./proxmox.conf"
 if [ -f "$CONFIG_FILE" ]; then
-  source "$CONFIG_FILE"
+    source "$CONFIG_FILE"
 else
-  echo "설정 파일 $CONFIG_FILE 이(가) 없습니다. 기본값 사용."
+    info "설정 파일 $CONFIG_FILE 이(가) 없습니다. 기본값 사용."
 fi
 
 MAIN=${MAIN:-main}
@@ -37,8 +53,8 @@ DOCKER_BRIDGE_NM=${DOCKER_BRIDGE_NM:-ProxyNet}
 BASIC_APT=${BASIC_APT:-"curl wget htop tree neofetch git vim net-tools nfs-common"}
 ALLOW_PORTS=${ALLOW_PORTS:-"80/tcp 443/tcp 443/udp 45876 5574 9999 32400"}
 
-error_exit() { echo "[오류] $1"; exit 1; }
-step() { echo "==> STEP $1: $2"; }
+step() { log "==> STEP $1: $2"; }
+error_exit() { err $1; exit 1; }
 
 step 1 "Ubuntu 템플릿 준비"
 LATEST_TEMPLATE=$(pveam available --section system | awk '/ubuntu-22.04-standard/ {print $2}' | sort -V | tail -1)
@@ -85,7 +101,7 @@ lxc.cap.drop:
 EOF
 
 step 4 "LXC GPU 설정 적용"
-echo "GPU 종류를 선택하세요: 1) AMD(내장/외장)   2) Intel(내장/외장)   3) NVIDIA"
+info "GPU 종류를 선택하세요: 1) AMD(내장/외장)   2) Intel(내장/외장)   3) NVIDIA"
 read -p "선택 (1/2/3): " GPU_CHOICE
 case "$GPU_CHOICE" in
   1|2)
@@ -129,6 +145,17 @@ apt-get install language-pack-ko fonts-nanum locales -y > /dev/null 2>&1
 locale-gen $LOCALE_LANG > /dev/null 2>&1
 update-locale LANG=$LOCALE_LANG > /dev/null 2>&1
 echo -e 'export LANG=$LOCALE_LANG\nexport LANGUAGE=$LOCALE_LANG\nexport LC_ALL=$LOCALE_LANG' >> /root/.bashrc
+echo -e 'export LANG=$LOCALE_LANG\nexport LANGUAGE=$LOCALE_LANG\nexport LC_ALL=$LOCALE_LANG' >> /root/.bashrc
+for LINE in \
+  "alias ls='ls --color=auto --show-control-chars'" \
+  "alias ll='ls -al --color=auto --show-control-chars'" \
+  "log() { echo \"[\$(date '+%T')] \$*\"; }" \
+  "info() { echo \"[INFO][\$(date '+%T')] \$*\"; }" \
+  "err() { echo \"[ERROR][\$(date '+%T')] \$*\"; }"
+do
+  grep -q "${LINE}" /root/.bashrc || echo "${LINE}" >> /root/.bashrc
+done
+source /root/.bashrc
 timedatectl set-timezone $TIMEZONE > /dev/null 2>&1
 "
 
@@ -137,13 +164,13 @@ pct exec $CT_ID -- bash -c "
 set -e
 case \"$GPU_CHOICE\" in
   1)
-    apt-get install vainfo -y > /dev/null 2>&1 ; vainfo > /dev/null 2>&1 || echo '[CT] vainfo 동작 경고'
+    apt-get install vainfo -y > /dev/null 2>&1 ; vainfo > /dev/null 2>&1 || info '[CT] vainfo 동작 경고'
     ;;
   2)
     apt-get install vainfo intel-media-va-driver-non-free intel-gpu-tools -y > /dev/null 2>&1 ; vainfo > /dev/null 2>&1
     ;;
   3)
-    apt-get install nvidia-driver nvidia-utils-525 -y > /dev/null 2>&1 ; nvidia-smi > /dev/null 2>&1 || echo '[CT] nvidia-smi 실행 경고'
+    apt-get install nvidia-driver nvidia-utils-525 -y > /dev/null 2>&1 ; nvidia-smi > /dev/null 2>&1 || info '[CT] nvidia-smi 실행 경고'
     ;;
   *)
     ;;
@@ -180,7 +207,7 @@ for PORT in $ALLOW_PORTS; do ufw allow \$PORT > /dev/null 2>&1; done
 ufw allow from $INTERNAL_NET > /dev/null 2>&1
 ufw allow from $DOCKER_BRIDGE_NET > /dev/null 2>&1
 ufw --force enable > /dev/null 2>&1
-dig @8.8.8.8 google.com +short | grep -qE '([0-9]{1,3}\\.){3}[0-9]{1,3}' || echo '[CT] DNS 쿼리 실패'
+dig @8.8.8.8 google.com +short | grep -qE '([0-9]{1,3}\\.){3}[0-9]{1,3}' || err '[CT] DNS 쿼리 실패'
 "
 
 step 11 "LXC 컨테이너 NAT/UFW rule적용 (DOCKER)"
@@ -201,4 +228,4 @@ then
 fi
 "
 
-echo "==> 전체 LXC 자동화 완료!"
+log "==> 전체 LXC 자동화 완료!"
