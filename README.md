@@ -13,6 +13,7 @@
 | `init.sh` | Proxmox 설치 후 초기 설정 값 대응 |
 | `partition.sh` | Proxmox 디스크 파티셔닝 및 PV, VG, LV, LVM 세팅 적용 |
 | `ubuntu.sh` | Proxmox Ubuntu 설치 및 환경설정 |
+| `caddy_setup.sh` | Docker Caddy 세팅 및 서브도메인 관리기능  |
 
 ### Step0. alias 적용
 ```
@@ -90,6 +91,20 @@ chmod +x *.sh
 mkdir -p /tmp/proxmox && cd /tmp/proxmox
 curl -L -o proxmox.conf https://raw.githubusercontent.com/ayuriki83/proxmox/main/proxmox.conf
 curl -L -o ubuntu.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/ubuntu.sh
+chmod +x *.sh
+./ubuntu.sh
+```
+
+### Step5. Docker Caddy 세팅 및 서브도메인 관리기능
+- docker compose 자동생성
+- caddyfile 초기 설정
+- 서비스 블럭 (서브도메인) 추가
+- 서비스 블럭 (서브도메인) 삭제
+```
+pct enter 101    # 우분투 접속 (ID 101 인 경우)
+mkdir -p /tmp/proxmox && cd /tmp/proxmox
+curl -L -o proxmox.conf https://raw.githubusercontent.com/ayuriki83/proxmox/main/proxmox.conf
+curl -L -o caddy_setup.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/caddy_setup.sh
 chmod +x *.sh
 ./ubuntu.sh
 ```
