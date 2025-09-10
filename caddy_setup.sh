@@ -185,7 +185,10 @@ ${BASE_DOMAIN} {
 }
 EOF
 
-    log ">> docker-compose.yml, conf/Caddyfile 생성 완료"
+    log "docker-compose.yml, conf/Caddyfile 생성 완료"
+    log 
+    log "Caddy 컨테이너를 시작하세요."
+    log "  - 시작: cd /docker/caddy && docker-compose up -d --force-recreate"
 }
 
 add() {
