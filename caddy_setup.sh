@@ -11,11 +11,23 @@ set -e
 # 모든 함수 호출에 앞서 로그 및 유틸리티 함수를 먼저 정의합니다.
 log() { echo "[$(date '+%T')] $*"; }
 info() { echo "[INFO][$(date '+%T')] $*"; }
-err() { echo "[ERROR][$(date '+%T')] \$*"; } # 이전에 \` 이스케이프 오류가 있었으므로, $를 이스케이프함
+err() { echo "[ERROR][$(date '+%T')] \$*"; }
 
 # 초기 환경 설정 및 함수 정의
 function_exists() { declare -f -F "$1" > /dev/null; }
 
+source_bashrc() {
+    local aliases=(
+        "alias ls='ls --color=auto --show-control-chars'"
+        "alias ll='ls -al --color=auto --show-control-chars'"
+    )
+    for line in "${aliases[@]}"; do
+        grep -qF "${line}" /root/.bashrc || echo "${line}" >> /root/.bashrc
+    done
+    source /root/.bashrc
+}
+
+source_bashrc
 
 # 환경 변수 및 설정 파일 경로
 CADDY_DIR="/docker/caddy"
@@ -179,9 +191,10 @@ add() {
     validate_input "$RP_ADDR" "reverse_proxy IP:포트"
 
     # Caddyfile 수정 (sed 활용)
-    # 수정된 부분: sed_command 변수 대신 파이프를 사용하고, http:// 스키마를 추가
-    # 와일드카드 블록 끝부분을 찾아 새로운 서비스 블록 삽입
-    new_block=$(cat << EOF
+    # 임시 파일에 새 블록을 저장하여 안전하게 삽입
+    TEMP_BLOCK_FILE=$(mktemp)
+    cat > "$TEMP_BLOCK_FILE" << EOF
+
     @${SUB} host ${SUB}.${BASE_DOMAIN}
     handle @${SUB} {
         reverse_proxy http://${RP_ADDR} {
@@ -190,12 +203,15 @@ add() {
         }
     }
 EOF
-)
     
-    if ! sed -i "/^\s*handle {/i\\$new_block" "$CADDYFILE"; then
+    # sed의 'r' (read) 명령어를 사용하여 임시 파일의 내용을 지정된 위치에 삽입
+    if ! sed -i "/^\s*handle {/r $TEMP_BLOCK_FILE" "$CADDYFILE"; then
         err "Caddyfile 수정에 실패했습니다. 파일 권한을 확인하거나 수동으로 수정해주세요."
         exit 4
     fi
+
+    # 임시 파일 삭제
+    rm "$TEMP_BLOCK_FILE"
 
     echo ">> ${SUB}.${BASE_DOMAIN} → ${RP_ADDR} 추가 완료"
     info "Docker 컨테이너를 다시 시작하세요. (cd /docker/caddy && docker-compose up -d)"
