@@ -1,6 +1,21 @@
 #!/bin/bash
 
+##########################
+# Proxmox 초기설정 자동화
+##########################
+
 set -e
+
+for LINE in \
+  "alias ls='ls --color=auto --show-control-chars'" \
+  "alias ll='ls -al --color=auto --show-control-chars'" \
+  "log() { echo \"[\$(date '+%T')] \$*\"; }" \
+  "info() { echo \"[INFO][\$(date '+%T')] \$*\"; }" \
+  "err() { echo \"[ERROR][\$(date '+%T')] \$*\"; }"
+do
+  grep -q "${LINE}" /root/.bashrc || echo "${LINE}" >> /root/.bashrc
+done
+source /root/.bashrc
 
 # 설정 파일 위치 지정 (스크립트와 같은 디렉토리 등)
 CONFIG_FILE="./proxmox.conf"
@@ -12,13 +27,6 @@ fi
 
 # 환경변수 기본값 지정 (설정파일에 없을 경우 대비)
 USB_MOUNT=${USB_MOUNT:-usb-backup} 
-
-echo "alias ls='ls --color=auto --show-control-chars'" >> /root/.bashrc
-echo "alias ll='ls -al --color=auto --show-control-chars'" >> root/.bashrc
-echo "log() { echo \"[\$(date '+%T')] \$*\"; }'" >> root/.bashrc
-echo "info() { echo \"[INFO][\$(date '+%T')] \$*\"; }'" >> root/.bashrc
-echo "err() { echo \"[ERROR][\$(date '+%T')] \$*\"; }'" >> root/.bashrc
-source /root/.bashrc
 
 log "==> 0. root 사이즈 변경"
 BEFORE_SIZE_GB=$(lsblk -b /dev/mapper/pve-root -o SIZE -n | awk '{printf "%.2f", $1/1024/1024/1024}')
