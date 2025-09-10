@@ -60,7 +60,7 @@ RCLONE_SIZE="${RCLONE_GB}G"
 LV_RCLONE=${LV_RCLONE:-lv-rclone}
 MOUNT_POINT=${MOUNT_POINT:-/mnt/rclone}
 
-step 3 "RCLONE LV생성(ext4) 및 LXC Conf 설정갱신"
+step 3 "RCLONE LV생성(ext4) 및 LXC Conf 설정 적용"
 lv_path="/dev/${VG_NAME}/${LV_RCLONE}"
 lvs $lv_path > /dev/null 2>&1 || (
     lvcreate -V $RCLONE_SIZE -T ${VG_NAME}/${LV_NAME} -n $LV_RCLONE > /dev/null 2>&1 || error_exit "LV 생성 실패"
@@ -81,7 +81,7 @@ lxc.cgroup2.devices.allow: a
 lxc.cap.drop:
 EOF
 
-step 4 "GPU Conf 설정정"
+step 4 "LXC Conf GPU 설정 적용"
 echo "GPU 종류를 선택하세요:"
 echo "1) AMD(내장/외장)"
 echo "2) Intel(내장/외장)"
@@ -203,16 +203,15 @@ dig @8.8.8.8 google.com +short | grep -E "([0-9]{1,3}\.){3}[0-9]{1,3}" > /dev/nu
 
 step 8 "호스트 NAT/UFW after.rules 변경"
 NAT_IFACE=$(ip route | awk '/default/ {print $5; exit}')
-iptables -t nat -C POSTROUTING -s $DOCKER_BRIDGE_NET -o $NAT_IFACE -j MASQUERADE 2>/dev/null || (
+if ! iptables -t nat -C POSTROUTING -s $DOCKER_BRIDGE_NET -o $NAT_IFACE -j MASQUERADE 2>/dev/null; then
   iptables -t nat -A POSTROUTING -s $DOCKER_BRIDGE_NET -o $NAT_IFACE -j MASQUERADE || error_exit "MASQUERADE 생성 실패"
-)
+fi
 UFW_AFTER_RULES="/etc/ufw/after.rules"
 if ! grep -q "^:DOCKER-USER" $UFW_AFTER_RULES; then
   cp $UFW_AFTER_RULES ${UFW_AFTER_RULES}.bak
   sed -i '/^COMMIT/i :DOCKER-USER - [0:0]\n-A DOCKER-USER -j RETURN' $UFW_AFTER_RULES || error_exit "after.rules 수정 실패"
   ufw reload > /dev/null 2>&1
 fi
-
 echo "[CT] 내부 설정 전체 완료!"
 '
 
