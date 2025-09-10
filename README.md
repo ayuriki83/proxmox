@@ -11,8 +11,8 @@
 | --- | --- |
 | `proxmox.conf` | 환경설정 값 관리 |
 | `init.sh` | Proxmox 설치 후 초기 설정 값 대응 |
-| `partition.sh` | Proxmox 디스크 파티셔닝 및 PV, VG, LV, LVM 세팅 적용 |
-| `ubuntu.sh` | Proxmox Ubuntu 설치 및 환경설정 |
+| `partition.sh` | Proxmox 파티셔닝 |
+| `ubuntu.sh` | Ubuntu 컨테이너 생성 및 기본 설정 |
 | `caddy_setup.sh` | Docker Caddy 세팅 및 서브도메인 관리기능  |
 
 ### Step0. alias 적용
@@ -38,7 +38,7 @@ apt update && apt upgrade -y
 apt install curl wget htop tree rsync neofetch git vim parted nfs-common net-tools -y
 ```
 
-### Step2. proxmox 기본 설정파일 실행
+### Step2. Proxmox 설치 후 초기 설정 값 대응
 - root 사이즈 최대치 설정
 - AppArmor 비활성화
 - pve-filrewall 비활성화 및 ufw 활성화
@@ -52,7 +52,7 @@ chmod +x *.sh
 ./init.sh
 ```
 
-### Step3. proxmox 파티셔닝
+### Step3. Proxmox 파티셔닝
 - 메인디스크 잔여용량 lvm-thin 모드로 생성
 - 보조/백업 디스크 생성유형에 따른 처리 (보조모드로 헤놀로지 통 운영시 : lvm-thin, 백업모드로 운영시 : directory)
 - parted 처리 및 pv/vg/lv/lvm 생성까지 처리
@@ -76,8 +76,8 @@ chmod +x *.sh
 | F | pvremove (3) |
 | G | fdisk 에서 삭제 |
 
-### Step4. proxmox ubuntu 설치 및 ubuntu 기본 설정
-- LXC Container (Ubunutu) 설치 (마운트 및 GPU연결 설정)
+### Step4. Ubuntu 컨테이너 생성 및 기본 설정
+- LXC Container (Ubunutu) 생성 (마운트 및 GPU연결 설정)
 - 마운트 공간 초기설정
 - LXC 시스템/패키지 업데이트 및 필수 구성요소 설치
 - LXC AppArmor 제거
