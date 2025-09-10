@@ -6,7 +6,7 @@
 # bash caddy-setup.sh add       # 서비스 블록 추가
 ##################################################
 
-set -e
+set -e 
 
 log() { echo "[$(date '+%T')] $*"; }
 info() { echo "[INFO][$(date '+%T')] $*"; }
