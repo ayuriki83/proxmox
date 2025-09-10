@@ -10,6 +10,7 @@ set -e
 
 # 초기 환경 설정 및 함수 정의
 function_exists() { declare -f -F "$1" > /dev/null; }
+: << "END"
 source_bashrc() {
     local aliases=(
         "alias ls='ls --color=auto --show-control-chars'"
@@ -25,6 +26,8 @@ source_bashrc() {
 }
 
 source_bashrc
+
+END
 
 # 환경 변수 및 설정 파일 경로
 CADDY_DIR="/docker/caddy"
