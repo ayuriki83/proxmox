@@ -7,12 +7,23 @@
 
 set -e
 
+for LINE in \
+  "alias ls='ls --color=auto --show-control-chars'" \
+  "alias ll='ls -al --color=auto --show-control-chars'" \
+  "log() { echo \"[\$(date '+%T')] \$*\"; }" \
+  "info() { echo \"[INFO][\$(date '+%T')] \$*\"; }" \
+  "err() { echo \"[ERROR][\$(date '+%T')] \$*\"; }"
+do
+  grep -q "${LINE}" /root/.bashrc || echo "${LINE}" >> /root/.bashrc
+done
+source /root/.bashrc
+
 # 설정 파일 위치 지정 (스크립트와 같은 디렉토리 등)
 CONFIG_FILE="./proxmox.conf"
 if [ -f "$CONFIG_FILE" ]; then
     source "$CONFIG_FILE"
 else
-    echo "설정 파일 $CONFIG_FILE 이(가) 없습니다. 기본값 사용."
+    info "설정 파일 $CONFIG_FILE 이(가) 없습니다. 기본값 사용."
 fi
 
 # 환경변수 기본값 지정 (설정파일에 없을 경우 대비)
