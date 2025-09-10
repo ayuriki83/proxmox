@@ -7,15 +7,6 @@
 
 set -e
 
-# alias 추가 및 중복 제거
-for LINE in \
-  "alias ls='ls --color=auto --show-control-chars'" \
-  "alias ll='ls -al --color=auto --show-control-chars'"
-do
-  grep -q "${LINE}" /root/.bashrc || echo "${LINE}" >> /root/.bashrc
-done
-source /root/.bashrc
-
 log() { echo "[$(date '+%T')] $*"; }
 info() { echo "[$(date '+%T')][INFO] $*"; }
 err() { echo "[$(date '+%T')][ERROR]" "$@" >&2 }
