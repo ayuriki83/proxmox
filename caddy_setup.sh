@@ -6,31 +6,16 @@
 # bash caddy-setup.sh add       # 서비스 블록 추가
 ##################################################
 
-set -e 
+set -e
 
+# 모든 함수 호출에 앞서 로그 및 유틸리티 함수를 먼저 정의합니다.
 log() { echo "[$(date '+%T')] $*"; }
 info() { echo "[INFO][$(date '+%T')] $*"; }
-err() { echo "[ERROR][$(date '+%T')] $*"; }
+err() { echo "[ERROR][$(date '+%T')] \$*"; } # 이전에 \` 이스케이프 오류가 있었으므로, $를 이스케이프함
 
 # 초기 환경 설정 및 함수 정의
 function_exists() { declare -f -F "$1" > /dev/null; }
-: << "END"
-source_bashrc() {
-    local aliases=(
-        "alias ls='ls --color=auto --show-control-chars'"
-        "alias ll='ls -al --color=auto --show-control-chars'"
-        "log() { echo \"[\$(date '+%T')] \$*\"; }"
-        "info() { echo \"[INFO][\$(date '+%T')] \$*\"; }"
-        "err() { echo \"[ERROR][\$(date '+%T')] \$*\"; }"
-    )
-    for line in "${aliases[@]}"; do
-        grep -qF "${line}" /root/.bashrc || echo "${line}" >> /root/.bashrc
-    done
-    source /root/.bashrc
-}
 
-source_bashrc
-END
 
 # 환경 변수 및 설정 파일 경로
 CADDY_DIR="/docker/caddy"
@@ -146,7 +131,7 @@ $(
         cat <<SVCF
     @${HN} host ${HN}.${BASE_DOMAIN}
     handle @${HN} {
-        reverse_proxy ${ADDR} {
+        reverse_proxy http://${ADDR} {
             header_up X-Forwarded-For {remote_host}
             header_up X-Real-IP {remote_host}
         }
@@ -194,21 +179,20 @@ add() {
     validate_input "$RP_ADDR" "reverse_proxy IP:포트"
 
     # Caddyfile 수정 (sed 활용)
+    # 수정된 부분: sed_command 변수 대신 파이프를 사용하고, http:// 스키마를 추가
     # 와일드카드 블록 끝부분을 찾아 새로운 서비스 블록 삽입
-    sed_command=$(cat << SED_EOF
-/^\s*handle {/i \
-
+    new_block=$(cat << EOF
     @${SUB} host ${SUB}.${BASE_DOMAIN}
     handle @${SUB} {
-        reverse_proxy ${RP_ADDR} {
+        reverse_proxy http://${RP_ADDR} {
             header_up X-Forwarded-For {remote_host}
             header_up X-Real-IP {remote_host}
         }
     }
-SED_EOF
+EOF
 )
     
-    if ! sed -i "$sed_command" "$CADDYFILE"; then
+    if ! sed -i "/^\s*handle {/i\\$new_block" "$CADDYFILE"; then
         err "Caddyfile 수정에 실패했습니다. 파일 권한을 확인하거나 수동으로 수정해주세요."
         exit 4
     fi
