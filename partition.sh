@@ -37,12 +37,12 @@ VG_DATA="vg-$DATA"
 LV_DATA="lv-$DATA"
 LVM_DATA="lvm-$DATA"
 
-echo "===== 파티션 생성 자동화 스크립트 ====="
-echo "===== 현재 파티션 정보 ====="
+log "===== 파티션 생성 자동화 스크립트 ====="
+log "===== 현재 파티션 정보 ====="
 lsblk -o NAME,SIZE,TYPE,MOUNTPOINT
 
-echo
-echo "===== 메인 디스크(Linux LVM 잔여 공간) 선택 (미선택시 Enter) ====="
+log
+log "===== 메인 디스크(Linux LVM 잔여 공간) 선택 (미선택시 Enter) ====="
 read -p "메인 디스크명 입력(ex: nvme0n1, sda, skip=Enter): " MAIN_DISK
 if [ -n "$MAIN_DISK" ]; then 
   # 마지막 파티션 번호 자동 추출 (예: p3)
@@ -57,25 +57,25 @@ if [ -n "$MAIN_DISK" ]; then
   START_POS=$(expr $START_POS + 1)
   END_POS=$(parted /dev/$MAIN_DISK unit MiB print free | awk '/Free Space/ {print $2}' | tail -1 | sed 's/MiB//')
   END_POS=$(expr $END_POS - 1)
-  echo "새 파티션 $PARTITION => 시작 위치: $START_POS MiB, 종료 위치: $END_POS MiB"
+  log "새 파티션 $PARTITION => 시작 위치: $START_POS MiB, 종료 위치: $END_POS MiB"
   
   # 실제 parted 파티션 생성 및 LVM 설정
   parted /dev/$MAIN_DISK --script unit MiB mkpart primary "${START_POS}MiB" "${END_POS}MiB"
   parted /dev/$MAIN_DISK --script set $PART_NUM lvm on
   partprobe /dev/$MAIN_DISK
   udevadm trigger
-  echo "새 파티션 $PARTITION 생성 및 LVM 플래그 적용 완료."
+  log "새 파티션 $PARTITION 생성 및 LVM 플래그 적용 완료."
   
   # pv, vg, lv 자동 생성
   pvcreate "$PARTITION"
   vgcreate $VG_MAIN "$PARTITION"
   lvcreate -l 100%FREE -T $VG_MAIN/$LV_MAIN
   pvesm add lvmthin $LVM_MAIN --vgname $VG_MAIN --thinpool $LV_MAIN --content images,rootdir
-  echo "pv/vg/lv까지 자동 생성 완료: pv($PARTITION), vg($VG_MAIN), lv($VG_MAIN/$LV_MAIN)"
+  log "pv/vg/lv까지 자동 생성 완료: pv($PARTITION), vg($VG_MAIN), lv($VG_MAIN/$LV_MAIN)"
 fi
 
-echo
-echo "==== 보조/백업 디스크 선택 (미선택시 Enter) ===="
+log
+log "==== 보조/백업 디스크 선택 (미선택시 Enter) ===="
 lsblk -o NAME,SIZE,TYPE
 read -p "보조/백업 디스크명 입력(ex: nvme1n1, sdb, skip=Enter): " SECOND_DISK
 if [ -n "$SECOND_DISK" ]; then
@@ -89,7 +89,7 @@ if [ -n "$SECOND_DISK" ]; then
     parted /dev/$SECOND_DISK --script set 1 lvm on
     partprobe /dev/$SECOND_DISK
     udevadm trigger
-    echo "보조/백업 디스크( $SECOND_DISK )를 Linux LVM 파티션으로 전체 할당 완료."
+    log "보조/백업 디스크( $SECOND_DISK )를 Linux LVM 파티션으로 전체 할당 완료."
 
     # 보조 디스크 새 파티션 이름 자동 탐색
     PARTITION=$(lsblk -nr -o NAME /dev/$SECOND_DISK | grep -v "^$SECOND_DISK$" | tail -n1)
@@ -100,12 +100,12 @@ if [ -n "$SECOND_DISK" ]; then
     vgcreate $VG_DATA "$PARTITION"
     lvcreate -l 100%FREE -T $VG_DATA/$LV_DATA
     pvesm add lvmthin $LVM_DATA --vgname $VG_DATA --thinpool $LV_DATA --content images,rootdir
-    echo "pv/vg/lv까지 자동 생성 완료: pv($PARTITION), vg($VG_DATA), lv($VG_DATA/$LV_DATA)"
+    log "pv/vg/lv까지 자동 생성 완료: pv($PARTITION), vg($VG_DATA), lv($VG_DATA/$LV_DATA)"
   elif [[ "$SECOND_TYPE" == "2" ]]; then
     parted /dev/$SECOND_DISK --script mkpart primary ext4 0% 100%
     partprobe /dev/$SECOND_DISK
     udevadm trigger
-    echo "보조/백업 디스크( $SECOND_DISK )를 Directory(ext4) 파티션으로 전체 할당 완료."
+    log "보조/백업 디스크( $SECOND_DISK )를 Directory(ext4) 파티션으로 전체 할당 완료."
 
     # 보조 디스크 새 파티션 이름 자동 탐색
     PARTITION=$(lsblk -nr -o NAME /dev/$SECOND_DISK | grep -v "^$SECOND_DISK$" | tail -n1)
@@ -119,7 +119,7 @@ if [ -n "$SECOND_DISK" ]; then
     # 실제 UUID 값 조회
     UUID=$(blkid -s UUID -o value "$PARTITION")
     if [ -z "$UUID" ]; then
-      echo "UUID를 찾을 수 없습니다: $PARTITION"
+      err "UUID를 찾을 수 없습니다: $PARTITION"
       exit 1
     fi
     
@@ -129,19 +129,19 @@ if [ -n "$SECOND_DISK" ]; then
     fi
     systemctl daemon-reload
     mount -a
-    echo "$PARTITION (UUID=$UUID)를 $MOUNT_PATH로 마운트 완료"
+    log "$PARTITION (UUID=$UUID)를 $MOUNT_PATH로 마운트 완료"
     
     # Proxmox 디렉터리 스토리지 등록
     pvesm add dir "$DIR_NAME" --path "$MOUNT_PATH" --content images,backup,rootdir
-    echo "Proxmox에서 디렉터리 스토리지 ($DIR_NAME)로 등록됨"    
+    log "Proxmox에서 디렉터리 스토리지 ($DIR_NAME)로 등록됨"    
   else
-    echo "올바른 선택이 아닙니다."
+    err "올바른 선택이 아닙니다."
     exit 1
   fi
 else
-  echo "보조/백업 디스크 없이 진행합니다."
+  info "보조/백업 디스크 없이 진행합니다."
 fi
 
-echo
-echo "===== 최종 파티션 상태 확인 ====="
+log
+log "===== 최종 파티션 상태 확인 ====="
 lsblk -o NAME,SIZE,TYPE,MOUNTPOINT
