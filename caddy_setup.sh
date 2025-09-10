@@ -2,9 +2,6 @@
 
 ##################################################
 # Docker Caddy 자동화
-# bash caddy-setup.sh init     # 최초 전체 파일 생성
-# bash caddy-setup.sh add      # 서비스 블록 추가
-# bash caddy-setup.sh remove   # 서비스 블록 삭제
 ##################################################
 
 set -e
