@@ -22,7 +22,7 @@ CONFIG_FILE="./proxmox.conf"
 if [ -f "$CONFIG_FILE" ]; then
     source "$CONFIG_FILE"
 else
-    echo "설정 파일 $CONFIG_FILE 이(가) 없습니다. 기본값 사용."
+    info "설정 파일 $CONFIG_FILE 이(가) 없습니다. 기본값 사용."
 fi
 
 # 환경변수 기본값 지정 (설정파일에 없을 경우 대비)
