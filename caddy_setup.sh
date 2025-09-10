@@ -8,6 +8,10 @@
 
 set -e
 
+log() { echo "[$(date '+%T')] $*"; }
+info() { echo "[INFO][$(date '+%T')] $*"; }
+err() { echo "[ERROR][$(date '+%T')] $*"; }
+
 # 초기 환경 설정 및 함수 정의
 function_exists() { declare -f -F "$1" > /dev/null; }
 : << "END"
@@ -27,11 +31,6 @@ source_bashrc() {
 
 source_bashrc
 END
-
-log() { echo "[$(date '+%T')] $*"; }
-info() { echo "[INFO][$(date '+%T')] $*"; }
-err() { echo "[ERROR][$(date '+%T')] $*"; }
-
 
 # 환경 변수 및 설정 파일 경로
 CADDY_DIR="/docker/caddy"
