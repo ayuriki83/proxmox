@@ -13,17 +13,12 @@ for LINE in \
 do
   grep -q "${LINE}" /root/.bashrc || echo "${LINE}" >> /root/.bashrc
 done
+source /root/.bashrc
 
-# 함수 추가 및 중복 제거
-if ! grep -q "log()" /root/.bashrc; then
-  cat >> /root/.bashrc <<'EOF'
 log() { echo "[$(date '+%T')] $*"; }
 info() { echo "[INFO][$(date '+%T')] $*"; }
 err() { echo "[ERROR][$(date '+%T')] $*"; }
-EOF
-fi
 
-source /root/.bashrc
 
 # 설정 파일 위치 지정 (스크립트와 같은 디렉토리 등)
 CONFIG_FILE="./proxmox.conf"
