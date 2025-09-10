@@ -60,7 +60,7 @@ RCLONE_SIZE="${RCLONE_GB}G"
 LV_RCLONE=${LV_RCLONE:-lv-rclone}
 MOUNT_POINT=${MOUNT_POINT:-/mnt/rclone}
 
-step 3 "LVM, 마운트, conf"
+step 3 "RCLONE LV생성(ext4) 및 LXC Conf 설정갱신"
 lv_path="/dev/${VG_NAME}/${LV_RCLONE}"
 lvs $lv_path > /dev/null 2>&1 || (
     lvcreate -V $RCLONE_SIZE -T ${VG_NAME}/${LV_NAME} -n $LV_RCLONE > /dev/null 2>&1 || error_exit "LV 생성 실패"
@@ -81,7 +81,7 @@ lxc.cgroup2.devices.allow: a
 lxc.cap.drop:
 EOF
 
-step 4 "GPU conf"
+step 4 "GPU Conf 설정정"
 echo "GPU 종류를 선택하세요:"
 echo "1) AMD(내장/외장)"
 echo "2) Intel(내장/외장)"
@@ -117,7 +117,7 @@ pct start $CT_ID > /dev/null 2>&1 || error_exit "컨테이너 시작 실패"
 sleep 5
 pct status $CT_ID | grep -qw running || error_exit "컨테이너가 비정상 상태"
 
-step 6 "컨테이너 내부 환경구성"
+step 6 "LXC 컨테이너 내부 환경구성"
 LOCALE_LANG=${LOCALE_LANG:-ko_KR.UTF-8}
 TIMEZONE=${TIMEZONE:-Asia/Seoul}
 DOCKER_DATA_ROOT=${DOCKER_DATA_ROOT:-/docker/core}
@@ -134,6 +134,7 @@ set -e
 step() { echo "[CT] STEP $1: $2"; }
 error_exit() { echo "[오류] $1"; exit 1; }
 
+echo "[CT] 내부 설정 시작"
 step 1 "업데이트/업그레이드"
 apt-get update -qq > /dev/null 2>&1 || error_exit "apt update 실패"
 apt-get upgrade -y > /dev/null 2>&1 || error_exit "apt upgrade 실패"
@@ -146,15 +147,15 @@ systemctl stop apparmor > /dev/null 2>&1 || true
 systemctl disable apparmor > /dev/null 2>&1 || true
 apt-get remove apparmor man-db -y > /dev/null 2>&1
 apt-get install language-pack-ko fonts-nanum locales -y > /dev/null 2>&1 || error_exit "한글 관련 패키지 설치 실패"
-locale-gen '"$LOCALE_LANG"'
-update-locale LANG='"$LOCALE_LANG"'
+locale-gen '"$LOCALE_LANG"' > /dev/null 2>&1
+update-locale LANG='"$LOCALE_LANG"' > /dev/null 2>&1
 echo -e "export LANG='"$LOCALE_LANG"'\nexport LANGUAGE='"$LOCALE_LANG"'\nexport LC_ALL='"$LOCALE_LANG"'" >> /root/.bashrc
 source /root/.bashrc
 
 step 4 "타임존 설정"
 timedatectl set-timezone '"$TIMEZONE"' > /dev/null 2>&1 || error_exit "타임존 설정 실패"
 
-step 5 "GPU/하드웨어 가속 및 드라이버"
+step 5 "GPU 설정 (하드웨어 가속 및 드라이버)"
 case "'$GPU_CHOICE'" in
   1)
     apt-get install vainfo -y > /dev/null 2>&1 || error_exit "vainfo(AMD) 설치 실패"
@@ -172,7 +173,7 @@ case "'$GPU_CHOICE'" in
   *) ;;
 esac
 
-step 6 "Docker/네트워크"
+step 6 "Docker 설치 및 브릿지 네트워크 등록"
 apt-get install docker.io docker-compose-v2 -y > /dev/null 2>&1 || error_exit "Docker/V2 설치 실패"
 systemctl enable docker > /dev/null 2>&1
 systemctl start docker > /dev/null 2>&1
@@ -192,7 +193,7 @@ EOF2
 systemctl restart docker > /dev/null 2>&1
 docker network create --subnet='"$DOCKER_BRIDGE_NET"' --gateway='"$DOCKER_BRIDGE_GW"' ProxyNet > /dev/null 2>&1 || true
 
-step 7 "방화벽 및 통신 확인"
+step 7 "방화벽 설정 및 통신 확인"
 apt-get install ufw -y > /dev/null 2>&1
 for PORT in '"$ALLOW_PORTS"'; do ufw allow $PORT > /dev/null 2>&1; done
 ufw allow from '"$INTERNAL_NET"' > /dev/null 2>&1
@@ -200,7 +201,19 @@ ufw allow from '"$DOCKER_BRIDGE_NET"' > /dev/null 2>&1
 ufw --force enable > /dev/null 2>&1
 dig @8.8.8.8 google.com +short | grep -E "([0-9]{1,3}\.){3}[0-9]{1,3}" > /dev/null 2>&1 || error_exit "DNS 쿼리 실패"
 
-echo "CT 내부 설정 전체 완료!"
+step 8 "호스트 NAT/UFW after.rules 변경"
+NAT_IFACE=$(ip route | awk '/default/ {print $5; exit}')
+iptables -t nat -C POSTROUTING -s $DOCKER_BRIDGE_NET -o $NAT_IFACE -j MASQUERADE 2>/dev/null || (
+  iptables -t nat -A POSTROUTING -s $DOCKER_BRIDGE_NET -o $NAT_IFACE -j MASQUERADE || error_exit "MASQUERADE 생성 실패"
+)
+UFW_AFTER_RULES="/etc/ufw/after.rules"
+if ! grep -q "^:DOCKER-USER" $UFW_AFTER_RULES; then
+  cp $UFW_AFTER_RULES ${UFW_AFTER_RULES}.bak
+  sed -i '/^COMMIT/i :DOCKER-USER - [0:0]\n-A DOCKER-USER -j RETURN' $UFW_AFTER_RULES || error_exit "after.rules 수정 실패"
+  ufw reload > /dev/null 2>&1
+fi
+
+echo "[CT] 내부 설정 전체 완료!"
 '
 
 echo "==> [완료] 모든 Proxmox LXC+Docker 자동화(오류 발생시만 메시지 표시)"
