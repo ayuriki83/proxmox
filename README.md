@@ -76,14 +76,16 @@ chmod +x *.sh
 | G | fdisk 에서 삭제 |
 
 ### Step4. proxmox ubuntu 설치 및 ubuntu 기본 설정
-- Ubunutu 설치 (마운트 및 GPU 연결정보까지 포함되도록)
-- 마운트 영역 초기설정
-- Ubunutu AppArmor 제거
-- Ubunutu 한글 폰트 적용
-- Ubunutu GPU 연결
-- Ubunutu Docker 설치
-- Ubunutu Docker 브릿지 설치
-- Ubunutu 방화벽 UFW 설정 (DOKCER 체인포함)
+- LXC Container (Ubunutu) 설치 (마운트 및 GPU연결 설정)
+- 마운트 공간 초기설정
+- LXC 시스템/패키지 업데이트 및 필수 구성요소 설치
+- LXC AppArmor 제거
+- LXC 한글 폰트 및 로케일 적용
+- LXC 시간설정
+- LXC GPU 설정
+- LXC Docker 설치 및 Daemon 세팅, 브릿지 네트워크 설치
+- LXC 방화벽 UFW 설정 (DOKCER 체인포함)
+- LXC NAT/UFW rule적용 (DOCKER)
 ```
 mkdir -p /tmp/proxmox && cd /tmp/proxmox
 curl -L -o proxmox.conf https://raw.githubusercontent.com/ayuriki83/proxmox/main/proxmox.conf
