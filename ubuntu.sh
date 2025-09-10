@@ -6,27 +6,9 @@
 
 set -e
 
-# alias 추가 및 중복 제거
-for LINE in \
-  "alias ls='ls --color=auto --show-control-chars'" \
-  "alias ll='ls -al --color=auto --show-control-chars'"
-do
-  grep -q "${LINE}" /root/.bashrc || echo "${LINE}" >> /root/.bashrc
-done
-source /root/.bashrc
-
 log() { echo "[$(date '+%T')] $*"; }
-info() { echo "[INFO][$(date '+%T')] $*"; }
-err() { echo "[ERROR][$(date '+%T')] $*"; }
-
-
-# 설정 파일 위치 지정 (스크립트와 같은 디렉토리 등)
-CONFIG_FILE="./proxmox.conf"
-if [ -f "$CONFIG_FILE" ]; then
-    source "$CONFIG_FILE"
-else
-    info "설정 파일 $CONFIG_FILE 이(가) 없습니다. 기본값 사용."
-fi
+info() { echo "[$(date '+%T')][INFO] $*"; }
+err() { echo "[$(date '+%T')][ERROR]" "$@" >&2 }
 
 MAIN=${MAIN:-main}
 VG_NAME="vg-$MAIN"
