@@ -6,7 +6,8 @@
 
 set -e
 
-log() { echo "[$(date '+%T')] $*" }
+log() { echo "[$(date '+%T')] $*"; }
+info() { echo "[$(date '+%T')][INFO] $*"; }
 err() { echo "[$(date '+%T')][ERROR]" "$@" >&2 }
 
 CADDY_DIR="/docker/caddy"
