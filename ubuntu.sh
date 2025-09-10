@@ -36,7 +36,6 @@ DOCKER_BRIDGE_GW=${DOCKER_BRIDGE_GW:-172.18.0.1}
 DOCKER_BRIDGE_NM=${DOCKER_BRIDGE_NM:-ProxyNet}
 BASIC_APT=${BASIC_APT:-"curl wget htop tree neofetch git vim net-tools nfs-common"}
 ALLOW_PORTS=${ALLOW_PORTS:-"80/tcp 443/tcp 443/udp 45876 5574 9999 32400"}
-INTERNAL_NET=${INTERNAL_NET:-"192.168.0.0/24"}
 
 error_exit() { echo "[오류] $1"; exit 1; }
 step() { echo "==> STEP $1: $2"; }
@@ -53,6 +52,7 @@ fi
 read -rp "컨테이너에 할당할 IP 주소를 입력하세요 (예: 192.168.0.235): " USER_IP
 IP="${USER_IP}/24"
 GATEWAY=$(ip route | awk '/default/ {print $3}')
+INTERNAL_NET=$(ip route | awk '/default/ {print $3}' | awk -F. '{print $1"."$2"."$3".0/24"}')
 
 step 2 "LXC 컨테이너 생성"
 pct create $CT_ID $TEMPLATE \
@@ -110,7 +110,7 @@ step 5 "LXC 컨테이너 시작"
 pct start $CT_ID > /dev/null 2>&1 || error_exit "컨테이너 시작 실패"
 sleep 5
 
-step 6 "LXC 컨테이너 시스템/패키지 업데이트"
+step 6 "LXC 컨테이너 시스템/패키지 업데이트 및 필수 구성요소 설치"
 pct exec $CT_ID -- bash -c "
 set -e
 apt-get update -qq > /dev/null 2>&1 && apt-get upgrade -y > /dev/null 2>&1
@@ -183,7 +183,7 @@ ufw --force enable > /dev/null 2>&1
 dig @8.8.8.8 google.com +short | grep -qE '([0-9]{1,3}\\.){3}[0-9]{1,3}' || echo '[CT] DNS 쿼리 실패'
 "
 
-step 11 "LXC 컨테이너 NAT/UFW after.rules 변경"
+step 11 "LXC 컨테이너 NAT/UFW rule적용 (DOCKER)"
 pct exec $CT_ID -- bash -c "
 set -e
 NAT_IFACE=\$(ip route | awk '/default/ {print \$5; exit}')
@@ -197,7 +197,7 @@ if ! grep -q \"^:DOCKER-USER\" \$UFW_AFTER_RULES
 then
   cp \$UFW_AFTER_RULES \${UFW_AFTER_RULES}.bak
   sed -i '/^COMMIT/i :DOCKER-USER - [0:0]\\n-A DOCKER-USER -j RETURN' \$UFW_AFTER_RULES
-  ufw reload
+  ufw reload > /dev/null 2>&1
 fi
 "
 
