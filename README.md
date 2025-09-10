@@ -73,3 +73,20 @@ chmod +x *.sh
 | E | vgremove (2)    # vg삭제시 lv도 같이 삭제됨 |
 | F | pvremove (3) |
 | G | fdisk 에서 삭제 |
+
+### Step4. proxmox ubuntu 설치 및 ubuntu 기본 설정
+- Ubunutu 설치 (마운트 및 GPU 연결정보까지 포함되도록)
+- 마운트 영역 초기설정
+- Ubunutu AppArmor 제거
+- Ubunutu 한글 폰트 적용
+- Ubunutu GPU 연결
+- Ubunutu Docker 설치
+- Ubunutu Docker 브릿지 설치
+- Ubunutu 방화벽 UFW 설정 (DOKCER 체인포함)
+```
+mkdir -p /tmp/proxmox && cd /tmp/proxmox
+curl -L -o proxmox.conf https://raw.githubusercontent.com/ayuriki83/proxmox/main/proxmox.conf
+curl -L -o ubuntu.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/ubuntu.sh
+chmod +x *.sh
+./ubuntu.sh
+```
