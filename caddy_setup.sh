@@ -6,28 +6,12 @@
 # bash caddy-setup.sh add       # 서비스 블록 추가
 ##################################################
 
-set -e
-
 # 모든 함수 호출에 앞서 로그 및 유틸리티 함수를 먼저 정의합니다.
-log() { echo "[$(date '+%T')] $*"; }
+log() { echo "$(date '+%T')] $*"; }
 info() { echo "[INFO][$(date '+%T')] $*"; }
 err() { echo "[ERROR][$(date '+%T')] \$*"; }
 
-# 초기 환경 설정 및 함수 정의
-function_exists() { declare -f -F "$1" > /dev/null; }
-
-source_bashrc() {
-    local aliases=(
-        "alias ls='ls --color=auto --show-control-chars'"
-        "alias ll='ls -al --color=auto --show-control-chars'"
-    )
-    for line in "${aliases[@]}"; do
-        grep -qF "${line}" /root/.bashrc || echo "${line}" >> /root/.bashrc
-    done
-    source /root/.bashrc
-}
-
-source_bashrc
+set -e
 
 # 환경 변수 및 설정 파일 경로
 CADDY_DIR="/docker/caddy"
