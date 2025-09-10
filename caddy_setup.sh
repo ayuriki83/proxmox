@@ -30,7 +30,7 @@ source_bashrc
 CADDY_DIR="/docker/caddy"
 CONFIG_DIR="${CADDY_DIR}/conf"
 CADDYFILE="${CONFIG_DIR}/Caddyfile"
-DOCKER_COMPOSE_FILE="${CADDY_DIR}/docker-compose.yml"
+DOCKER_COMPOSE_FILE="/docker/caddy/docker-compose.yml"
 PROXMOX_CONF="./proxmox.conf"
 
 # 설정 파일 로드
