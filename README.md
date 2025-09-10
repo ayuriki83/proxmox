@@ -106,5 +106,5 @@ mkdir -p /tmp/proxmox && cd /tmp/proxmox
 curl -L -o proxmox.conf https://raw.githubusercontent.com/ayuriki83/proxmox/main/proxmox.conf
 curl -L -o caddy_setup.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/caddy_setup.sh
 chmod +x *.sh
-./ubuntu.sh
+./caddy_setup.sh
 ```
