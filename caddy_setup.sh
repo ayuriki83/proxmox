@@ -107,9 +107,6 @@ services:
       - config:/config
     environment:
       - CLOUDFLARE_API_TOKEN=${CF_TOKEN}
-      - ADMIN_EMAIL=${ADMIN_EMAIL}
-      - BASE_DOMAIN=${BASE_DOMAIN}
-      - PROXMOX_IP_PORT=${PROXMOX_IP_PORT}
 volumes:
   data:
   config:
@@ -149,7 +146,7 @@ $(
         cat <<SVCF
     @${HN} host ${HN}.${BASE_DOMAIN}
     handle @${HN} {
-        reverse_proxy http://${ADDR} {
+        reverse_proxy ${ADDR} {
             header_up X-Forwarded-For {remote_host}
             header_up X-Real-IP {remote_host}
         }
@@ -203,7 +200,7 @@ add() {
 
     @${SUB} host ${SUB}.${BASE_DOMAIN}
     handle @${SUB} {
-        reverse_proxy http://${RP_ADDR} {
+        reverse_proxy ${RP_ADDR} {
             header_up X-Forwarded-For {remote_host}
             header_up X-Real-IP {remote_host}
         }
