@@ -12,6 +12,7 @@
 | `proxmox.conf` | 환경설정 값 관리 |
 | `init.sh` | Proxmox 설치 후 초기 설정 값 대응 |
 | `partition.sh` | Proxmox 디스크 파티셔닝 및 PV, VG, LV, LVM 세팅 적용 |
+| `ubuntu.sh` | Proxmox Ubuntu 설치 및 환경설정 |
 
 ### Step0. alias 적용
 ```
