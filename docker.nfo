@@ -26,7 +26,7 @@ volumes:
 networks:
   default:
     external: true
-    name: [DOCKER_BRIDGE_NET]
+    name: [DOCKER_BRIDGE_NM]
 EOF
 </compose>
 </docker>
@@ -58,7 +58,7 @@ volumes:
 networks:
   default:
     external: true
-    name [DOCKER_BRIDGE_NET]
+    name [DOCKER_BRIDGE_NM]
 EOF
 </compose>
 <caddys>
@@ -127,7 +127,7 @@ services:
 networks:
   default:
     external: true
-    name: [DOCKER_BRIDGE_NET]
+    name: [DOCKER_BRIDGE_NM]
 EOF &&  cat > /docker/rclone/rclone.conf << 'EOF'
 [google]
 type = drive
@@ -202,7 +202,7 @@ volumes:
 networks:
   default:
     external: true
-    name: [DOCKER_BRIDGE_NET]
+    name: [DOCKER_BRIDGE_NM]
 EOF
 </compose>
 <caddys>
@@ -260,7 +260,7 @@ services:
 networks:
   default:
     external: true
-    name: [DOCKER_BRIDGE_NET]
+    name: [DOCKER_BRIDGE_NM]
 EOF
 </compose>
 <caddys>
@@ -305,7 +305,7 @@ services:
 networks:
   default:
     external: true
-    name: [DOCKER_BRIDGE_NET]
+    name: [DOCKER_BRIDGE_NM]
 EOF
 </compose>
 <caddys>
@@ -346,7 +346,7 @@ volumes:
 networks:
   default:
     external: true
-    name: [DOCKER_BRIDGE_NET]
+    name: [DOCKER_BRIDGE_NM]
 EOF
 </compose>
 <caddys>
@@ -382,7 +382,7 @@ volumes:
 networks:
   default:
     external: true
-    name: [DOCKER_BRIDGE_NET]
+    name: [DOCKER_BRIDGE_NM]
 EOF
 </compose>
 <caddys>
@@ -417,7 +417,7 @@ services:
 networks:
   default:
     external: true
-    name: [DOCKER_BRIDGE_NET]
+    name: [DOCKER_BRIDGE_NM]
 EOF
 </compose>
 </docker>
