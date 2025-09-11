@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 2:30
+# 2:38
 # 자동화 스크립트 (INI 스타일 NFO 대응)
 # - NFO 사용자정의 마커(__DOCKER__, __COMMAND__, etc) 직접 파싱
 # - 환경변수 ##KEY## 형식 치환
@@ -122,15 +122,14 @@ run_commands() {
 
   mapfile -t commands < <(
     awk -v svc="$svc" '
+      echo "$svc"
       BEGIN {in_docker=0; in_cmds=0; in_cmd=0; cmd=""}
-      # DOCKER 블록 진입
-      $0 ~ "^__DOCKER__ name=\""svc"\"" {in_docker=1; next}
+      index($0, "__DOCKER__ name=\""svc"\"") > 0 {in_docker=1; next}
       in_docker && $0 ~ /^__COMMANDS_START__$/ {in_cmds=1; next}
       in_docker && $0 ~ /^__COMMANDS_END__$/ {in_cmds=0; next}
       in_docker && in_cmds && $0 ~ /^__COMMAND_START__$/ {in_cmd=1; cmd=""; next}
       in_docker && in_cmds && $0 ~ /^__COMMAND_END__$/ {if(in_cmd){print cmd}; cmd=""; in_cmd=0; next}
       in_docker && in_cmds && in_cmd {cmd=cmd $0 "\n"}
-      # DOCKER 블록 탈출(다음 DOCKER/DOCKER_END/DOCKER_LIST_END)
       $0 ~ /^__DOCKER_END__$/ {in_docker=0}
       END{if(cmd!="") print cmd}
     ' "$NFO_FILE"
