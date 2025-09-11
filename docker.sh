@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 1:1
+# 1:4
 # 자동화 스크립트 (INI 스타일 NFO 대응)
 # - NFO 사용자정의 마커(__DOCKER__, __COMMAND__, etc) 직접 파싱
 # - 환경변수 ##KEY## 형식 치환
@@ -190,7 +190,7 @@ extract_caddy() {
     in_c && /^\s*__CADDYS__/ {in_c=0; exit}
     in_c && !/^\s*__\w+__/ {buf=buf $0 "\n"}
     END {print buf}
-  ' "$NFO_FILE")
+  ' "$NFO_FILE"
 }
 
 DOCKER_CADDY=""
