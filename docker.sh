@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# 3:10
+# 3:17
 # 자동화 스크립트 (커스텀 INI 스타일 NFO 대응: CMD/EOF 구분)
-# - NFO 사용자정의 마커(__DOCKER__, __CMD__, __EOFS__, __EOF__, etc) 직접 파싱
+# - NFO 사용자정의 마커(__DOCKER_START__, __CMD__, __EOFS__, __EOF__, etc) 직접 파싱
 # - 환경변수 ##KEY## 형식 치환
 # - 명령어 임시파일 실행 (heredoc 문제 없음, 다중라인/단일라인 모두 지원)
 # - 함수 외부에서는 local 제거, 변수만 선언
@@ -52,7 +52,7 @@ done
 DOCKER_NAMES=()
 DOCKER_REQ=()
 while IFS= read -r line; do
-  if [[ $line =~ ^__DOCKER__\ name=\"([^\"]+)\"\ +req=\"([^\"]+)\" ]]; then
+  if [[ $line =~ ^__DOCKER_START__\ name=\"([^\"]+)\"\ +req=\"([^\"]+)\" ]]; then
     DOCKER_NAMES+=("${BASH_REMATCH[1]}")
     DOCKER_REQ+=("${BASH_REMATCH[2]}")
   fi
@@ -122,7 +122,7 @@ run_commands() {
   # 단일명령어 블록 추출
   mapfile -t cmds < <(
     awk -v svc="$svc" '
-      index($0, "__DOCKER__ name=\""svc"\"") > 0 {in_docker=1; next}
+      index($0, "__DOCKER_START__ name=\""svc"\"") > 0 {in_docker=1; next}
       in_docker && $0 ~ /^__CMD_START__$/ {in_cmd=1; cmd=""; next}
       in_docker && $0 ~ /^__CMD_END__$/   {if(in_cmd){print cmd}; cmd=""; in_cmd=0; next}
       in_docker && in_cmd && $0 !~ /^__/  {cmd=cmd $0 "\n"; next}
@@ -133,7 +133,7 @@ run_commands() {
   # 다중라인 명령 파싱 (EOFs)
   mapfile -t eofs < <(
     awk -v svc="$svc" '
-      index($0, "__DOCKER__ name=\""svc"\"") > 0 {in_docker=1; next}
+      index($0, "__DOCKER_START__ name=\""svc"\"") > 0 {in_docker=1; next}
       in_docker && $0 ~ /^__EOFS_START__$/ {in_eofs=1; next}
       in_docker && $0 ~ /^__EOFS_END__$/   {in_eofs=0; next}
       in_docker && in_eofs && $0 ~ /^__EOF_START__$/ {in_eof=1; eofcmd=""; next}
