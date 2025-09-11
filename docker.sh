@@ -1,18 +1,20 @@
 #!/bin/bash
 
-# 1:4
+# 1:07
 # 자동화 스크립트 (INI 스타일 NFO 대응)
 # - NFO 사용자정의 마커(__DOCKER__, __COMMAND__, etc) 직접 파싱
 # - 환경변수 ##KEY## 형식 치환
 # - 명령어 임시파일 실행 (heredoc 문제 없음)
-# - for/if/전역에서 local 사용 없이 변수로 선언
+# - 함수 외부에서는 local 제거, 변수만 선언
+# - 함수 내부만 local 사용
+# - awk 내 쉘 변수를 안전하게 인용
 
 set -e
 
 log() { echo "[$(date '+%T')] $*"; }
 info() { echo "[$(date '+%T')][INFO] $*"; }
 warn() { echo "[$(date '+%T')][WARN] $*"; }
-err() { echo "[$(date '+%T')][ERROR]" "$@" >&2 }
+err() { echo "[$(date '+%T')][ERROR]" "$@" >&2; }
 
 NFO_FILE="./docker.nfo"
 ENV_FILE="./docker.env"
@@ -34,10 +36,10 @@ else
   touch "$ENV_FILE"
 fi
 
-# 환경변수 추출
+# 환경변수 리스트 추출
 mapfile -t ENV_KEYS < <(grep -oP '##\K[^#]+(?=##)' "$NFO_FILE" | sort -u)
 
-# 환경변수 입력 함수 (함수 내부에서만 local 사용)
+# 환경변수 없는 경우 입력받음 (함수 내 local)
 load_env() {
   local key="$1"
   if [ -z "${ENV_VALUES[$key]}" ]; then
@@ -50,7 +52,7 @@ for key in "${ENV_KEYS[@]}"; do
   load_env "$key"
 done
 
-# 도커 서비스 정보 파싱
+# 도커 서비스 정보 파싱 (전역 변수 사용, local 제거)
 DOCKER_NAMES=()
 DOCKER_REQ=()
 while IFS= read -r line; do
@@ -60,7 +62,6 @@ while IFS= read -r line; do
   fi
 done < "$NFO_FILE"
 
-# 서비스 표 출력 및 옵션 번호 부여
 log
 printf "========== Docker Services ==========\n"
 printf "| %3s | %-15s | %-9s |\n" "No." "Name" "ReqYn"
@@ -80,7 +81,6 @@ for i in "${!DOCKER_NAMES[@]}"; do
 done
 printf "|-----|----------------|----------|\n\n"
 
-# 선택 서비스 안내 (옵션만 번호와 이름 출력)
 if (( ${#OPTIONAL_INDEX[@]} > 0 )); then
   log "선택 가능한 서비스:"
   for item in "${OPTIONAL_INDEX[@]}"; do
@@ -94,11 +94,9 @@ else
   warn "선택 가능한 서비스가 없습니다."
 fi
 
-# 옵션 서비스 선택 입력
 read -rp "실행할 서비스 번호를 ','로 구분하여 입력하세요 (예: 1,3,5): " input_line
 IFS=',' read -r -a selected_nums <<< "$input_line"
 
-# 선택된 옵션 서비스 해시 선언
 declare -A SELECTED_SERVICES=()
 for num in "${selected_nums[@]}"; do
   num_trimmed=$(echo "$num" | xargs)
@@ -113,7 +111,6 @@ for num in "${selected_nums[@]}"; do
   done
 done
 
-# 필수 및 옵션 서비스 합치기
 REQS=()
 OPTS=()
 for i in "${!DOCKER_NAMES[@]}"; do
@@ -130,20 +127,19 @@ ALL_SERVICES=("${REQS[@]}" "${OPTS[@]}")
 echo
 echo "실행 대상: ${ALL_SERVICES[*]}"
 
-# 명령 실행 함수 (함수 내부에서만 local 사용)
 run_commands() {
   local svc="$1"
   log
   log "=== 실행: $svc ==="
 
-  local cmds_block
+  # awk 내 변수 안전 인용을 위해 변수 전달 방식 보완
   cmds_block=$(awk -v svc="$svc" '
     BEGIN {in_d=0; in_c=0}
-    /^\s*__DOCKER__\ name="'$svc'"/ {in_d=1; next}
-    /^\s*__DOCKER__/ {if (in_d) exit}
-    in_d && /^\s*__COMMANDS__/ {in_c=1; next}
-    in_c && /^\s*__COMMANDS__/ {next}
-    in_c && /^\s*__C\w+__/ {in_c=0; exit}
+    $0 ~ "^__DOCKER__ name=\""svc"\"" {in_d=1; next}
+    $0 ~ "^__DOCKER__" && in_d == 1 {exit}
+    in_d && $0 ~ "^__COMMANDS__" {in_c=1; next}
+    in_c && $0 ~ "^__COMMANDS__" {next}
+    in_c && $0 ~ "^__C\\w+__" {in_c=0; exit}
     in_c {print}
   ' "$NFO_FILE")
 
@@ -167,12 +163,10 @@ run_commands() {
   done
 }
 
-# 서비스 실행
 for svc in "${ALL_SERVICES[@]}"; do
   run_commands "$svc"
 done
 
-# Caddy 필드 취합
 final_block=$(awk '
   BEGIN{in_f=0}
   /^\s*__FINAL__START__/ {in_f=1; next}
@@ -184,11 +178,11 @@ extract_caddy() {
   local svc="$1"
   awk -v svc="$svc" '
     BEGIN {in_d=0; in_c=0; buf=""}
-    /^\s*__DOCKER__\ name="'$svc'"/ {in_d=1; next}
-    /^\s*__DOCKER__/ {if(in_d) exit}
-    in_d && /^\s*__CADDYS__/ {in_c=1; next}
-    in_c && /^\s*__CADDYS__/ {in_c=0; exit}
-    in_c && !/^\s*__\w+__/ {buf=buf $0 "\n"}
+    $0 ~ "^__DOCKER__ name=\""svc"\"" {in_d=1; next}
+    $0 ~ "^__DOCKER__" && in_d == 1 {exit}
+    in_d && $0 ~ "^__CADDYS__" {in_c=1; next}
+    in_c && $0 ~ "^__CADDYS__" {in_c=0; exit}
+    in_c && $0 !~ "^__\\w+__" {buf=buf $0 "\n"}
     END {print buf}
   ' "$NFO_FILE"
 }
