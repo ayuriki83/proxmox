@@ -67,9 +67,9 @@ printf "|-----|-----------------|-----------|\n"
 opt_seq=1
 OPTIONAL_INDEX_MAP=()
 for i in "${!DOCKER_NAMES[@]}"; do
-  local name="${DOCKER_NAMES[i]}"
-  local required="${DOCKER_REQUIRED[i]}"
-  local no=""
+  name="${DOCKER_NAMES[i]}"
+  required="${DOCKER_REQUIRED[i]}"
+  no=""
   if [[ "$required" == "false" ]]; then
     no=$opt_seq
     OPTIONAL_INDEX_MAP+=("${i}:${no}:${name}")
