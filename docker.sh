@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 11:42
+# 11:52
 # 자동화 스크립트 (docker.sh 수정판)
 # - docker.nfo 읽어서 docker 서비스 리스트 및 compose, caddy 설정 추출 및 실행
 # - docker.env 읽어 환경변수 불러오고, 없으면 입력받음
@@ -147,8 +147,11 @@ run_compose_for_service() {
     compose_block=$(echo "$compose_block" | sed "s/##${key}##/${ENV_VALUES[$key]//\//\\/}/g")
   done
 
-
-  bash -c "$compose_block"
+  # ★ 임시 쉘 파일에 저장하고 bash로 실행해야 heredoc 정상동작!
+  tmpfile=$(mktemp)
+  echo "$compose_block" > "$tmpfile"
+  bash "$tmpfile"
+  rm -f "$tmpfile"
 }
 
 for svc in "${ALL_SERVICES[@]}"; do
