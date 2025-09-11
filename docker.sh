@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 2:18
+# 2:21
 # 자동화 스크립트 (INI 스타일 NFO 대응)
 # - NFO 사용자정의 마커(__DOCKER__, __COMMAND__, etc) 직접 파싱
 # - 환경변수 ##KEY## 형식 치환
@@ -120,33 +120,24 @@ run_commands() {
   echo
   echo "=== 실행: $svc ==="
 
-  local cmds_block
-  cmds_block=$(awk -v svc="$svc" '
-    BEGIN {in_d=0; in_c=0}
-    $0 ~ "^__DOCKER__ name=\""svc"\"" {in_d=1; next}
-    $0 ~ "^__DOCKER__" && in_d == 1 {exit}
-    in_d && $0 ~ "^__COMMANDS_START__" {in_c=1; next}
-    in_c && $0 ~ "^__COMMANDS_END__" {in_c=0; exit}
-    in_c {print}
-  ' "$NFO_FILE")
-
   mapfile -t commands < <(
     awk -v svc="$svc" '
-      BEGIN {in_svc=0; in_cmd=0; cmd=""}
+      BEGIN {in_d=0; in_cmd=0; cmd=""}
+      # 서비스 진입점
       { raw = $0; gsub(/[\r\t ]+$/, "", raw) }
-      raw ~ "^__DOCKER__ name=\""svc"\"" {in_svc=1}
-      in_svc && raw ~ /^__COMMAND_START__$/ {in_cmd=1; cmd=""; next}
-      in_svc && raw ~ /^__COMMAND_END__$/ { if(in_cmd) { print cmd }; cmd=""; in_cmd=0; next }
-      in_svc && in_cmd { cmd = cmd $0 "\n" }
-      # __DOCKER_END__를 만나면 서비스 벗어나기(아래 줄을 넣을 수도 있음)
-      # raw ~ /^__DOCKER_END__$/ {in_svc=0}
-      END {if(cmd!="") print cmd}
+      raw ~ "^__DOCKER__ name=\""svc"\"" { in_d=1; next }
+      in_d && raw ~ /^__COMMAND_START__$/ { in_cmd=1; cmd=""; next }
+      in_d && raw ~ /^__COMMAND_END__$/   { if(in_cmd){print cmd}; cmd=""; in_cmd=0; next }
+      # 서비스 탈출
+      in_d && raw ~ /^__DOCKER_END__$/ { in_d=0; }
+      in_d && in_cmd { cmd=cmd $0 "\n" }
+      END { if(cmd!="") print cmd }
     ' "$NFO_FILE"
   )
 
   for cmd in "${commands[@]}"; do
-    # 반드시 마지막 줄 개행이 남지 않도록
-    cmd_clean=$(printf "%s" "$cmd" | sed ':a;N;$!ba;s/\n$//')
+    # 마무리 줄끝 개행 제거(heredoc 마지막 EOF 뒤 추가 개행 X)
+    cmd_clean=$(printf "%s" "$cmd" | sed ':a;N;$!ba;s/\n\+\$//')
     tmpf=$(mktemp)
     printf "%s" "$cmd_clean" > "$tmpf"
     echo "==== 임시파일 DEBUG ===="
