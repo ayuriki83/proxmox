@@ -3,7 +3,7 @@
 # 자동화 스크립트: 외부 nfo 파일에서 Docker, Caddy 설정 읽기 및 환경변수 적용해서 도커 컴포즈 실행 + Caddyfile 생성
 
 NFO_FILE="./docker.nfo"
-ENV_FILE="./.env"
+ENV_FILE="./docker.env"
 
 if [ ! -f "$NFO_FILE" ]; then
   echo "오류: $NFO_FILE 파일을 찾을 수 없습니다."
