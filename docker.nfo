@@ -138,6 +138,7 @@ gds_endpoint = https://api.sjva.me/v1/gds_auth
 EOF && cat > filter.txt << 'EOF'
 - Featurettes/**
 EOF
+</compose>
 </docker>
 
 <docker name="ff_plex" required="true">
