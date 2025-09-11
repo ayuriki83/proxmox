@@ -1,10 +1,10 @@
 __DOCKERS_START__
 __DOCKER__ name="caddy" req="true"
-__COMMANDS_START__
-__COMMAND_START__
+__CMD_START__
 mkdir -p /docker/caddy/{conf,log}
-__COMMAND_END__
-__COMMAND_START__
+__CMD_END__
+__EOFS_START__
+__EOF_START__
 cat > /docker/caddy/docker-compose.yml << 'EOF'
 services:
   caddy:
@@ -32,16 +32,16 @@ networks:
     external: true
     name: ##DOCKER_BRIDGE_NM##
 EOF
-__COMMAND_END__
-__COMMANDS_END__
+__EOF_END__
+__EOFS_END__
 __DOCKER_END__
 
 __DOCKER__ name="portainer" req="true" 
-__COMMANDS_START__
-__COMMAND_START__
+__CMD_START__
 mkdir -p /docker/portainer
-__COMMAND_END__
-__COMMAND_START__
+__CMD_END__
+__EOFS_START__
+__EOF_START__
 cat > /docker/portainer/docker-compose.yml << 'EOF'
 version: "3.8"
 services:
@@ -69,8 +69,8 @@ networks:
     external: true
     name ##DOCKER_BRIDGE_NM##
 EOF
-__COMMAND_END__
-__COMMANDS_END__
+__EOF_END__
+__EOFS_END__
 __CADDYS_START__
 __CADDY_START__
     # Portainer
@@ -86,11 +86,11 @@ __CADDYS_END__
 __DOCKER_END__
 
 __DOCKER__ name="rclone" req="true"
-__COMMANDS_START__
-__COMMAND_START__
+__CMD_START__
 mkdir -p /docker/rclone
-__COMMAND_END__
-__COMMAND_START__
+__CMD_END__
+__EOFS_START__
+__EOF_START__
 cat > /docker/rclone/docker-compose.yml << 'EOF'
 version: '3'
 services:
@@ -143,8 +143,8 @@ networks:
     external: true
     name: ##DOCKER_BRIDGE_NM##
 EOF
-__COMMAND_END__
-__COMMAND_START__
+__EOF_END__
+__EOF_START__
 cat > /docker/rclone/rclone.conf << 'EOF'
 [google]
 type = drive
@@ -153,21 +153,21 @@ gds_userid = ##GDS_USERID##
 gds_apikey = ##GDS_APIKEY##
 gds_endpoint = https://api.sjva.me/v1/gds_auth
 EOF
-__COMMAND_END__
-__COMMAND_START__
+__EOF_END__
+__EOF_START__
 cat > /docker/rclone/filter.txt << 'EOF'
 - Featurettes/**
 EOF
-__COMMAND_END__
-__COMMANDS_END__
+__EOF_END__
+__EOFS_END__
 __DOCKER_END__
 
 __DOCKER__ name="ff_plex" req="true"
-__COMMANDS_START__
-__COMMAND_START__
+__CMD_START__
 mkdir -p /docker/ff_plex/{ff,plex} && mkdir -p /docker/ff_plex/plex/{config,transcode}
-__COMMAND_END__
-__COMMAND_START__
+__CMD_END__
+__EOFS_START__
+__EOF_START__
 cat > /docker/ff_plex/docker-compose.yml << 'EOF'
 version: '3'
 services: 
@@ -230,8 +230,8 @@ networks:
     external: true
     name: ##DOCKER_BRIDGE_NM##
 EOF
-__COMMAND_END__
-__COMMANDS_END__
+__EOF_END__
+__EOFS_END__
 __CADDYS_START__
 __CADDY_START__
     # Plex Media Server + Hook
@@ -264,11 +264,11 @@ __CADDYS_END__
 __DOCKER_END__
 
 __DOCKER__ name="jellyfin" req="false"
-__COMMANDS_START__
-__COMMAND_START__
+__CMD_START__
 mkdir -p /docker/jellyfin/{cache,config}
-__COMMAND_END__
-__COMMAND_START__
+__CMD_END__
+__EOFS_START__
+__EOF_START__
 cat > /docker/jellyfin/docker-compose.yml << 'EOF'
 version: "3.7"
 services:
@@ -293,8 +293,8 @@ networks:
     external: true
     name: ##DOCKER_BRIDGE_NM##
 EOF
-__COMMAND_END__
-__COMMANDS_END__
+__EOF_END__
+__EOFS_END__
 __CADDYS_START__
 __CADDY_START__
     # Jellyfin
@@ -310,11 +310,11 @@ __CADDYS_END__
 __DOCKER_END__
 
 __DOCKER__ name="kavita" req="false"
-__COMMANDS_START__
-__COMMAND_START__
+__CMD_START__
 mkdir -p /docker/kavita
-__COMMAND_END__
-__COMMAND_START__
+__CMD_END__
+__EOFS_START__
+__EOF_START__
 cat > /docker/kavita/docker-compose.yml << 'EOF'
 version: '3.3'
 services:
@@ -343,8 +343,8 @@ networks:
     external: true
     name: ##DOCKER_BRIDGE_NM##
 EOF
-__COMMAND_END__
-__COMMANDS_END__
+__EOF_END__
+__EOFS_END__
 __CADDYS_START__
 __CADDY_START__
     # Kavita
@@ -360,11 +360,11 @@ __CADDYS_END__
 __DOCKER_END__
 
 __DOCKER__ name="beszel" req="false"
-__COMMANDS_START__
-__COMMAND_START__
+__CMD_START__
 mkdir -p /docker/beszel
-__COMMAND_END__
-__COMMAND_START__
+__CMD_END__
+__EOFS_START__
+__EOF_START__
 cat > /docker/beszel/docker-compose.yml << 'EOF'
 version: "3.8"
 services:
@@ -389,8 +389,8 @@ networks:
     external: true
     name: ##DOCKER_BRIDGE_NM##
 EOF
-__COMMAND_END__
-__COMMANDS_END__
+__EOF_END__
+__EOFS_END__
 __CADDYS_START__
 __CADDY_START__
     # Beszel
@@ -406,11 +406,11 @@ __CADDYS_END__
 __DOCKER_END__
 
 __DOCKER__ name="uptime-kuma" req="false"
-__COMMANDS_START__
-__COMMAND_START__
+__CMD_START__
 mkdir -p /docker/uptime-kuma
-__COMMAND_END__
-__COMMAND_START__
+__CMD_END__
+__EOFS_START__
+__EOF_START__
 cat > /docker/uptime-kuma/docker-compose.yml << 'EOF'
 version: '3.3'
 services:
@@ -430,8 +430,8 @@ networks:
     external: true
     name: ##DOCKER_BRIDGE_NM##
 EOF
-__COMMAND_END__
-__COMMANDS_END__
+__EOF_END__
+__EOFS_END__
 __CADDYS_START__
 __CADDY_START__
     # Uptime Kuma
@@ -447,11 +447,11 @@ __CADDYS_END__
 __DOCKER_END__
 
 __DOCKER__ name="vaultwarden" req="false"
-__COMMANDS_START__
-__COMMAND_START__
+__CMD_START__
 mkdir -p /docker/vaultwarden
-__COMMAND_END__
-__COMMAND_START__
+__CMD_END__
+__EOFS_START__
+__EOF_START__
 cat > /docker/vaultwarden/docker-compose.yml << 'EOF'
 version: '3.1'
 services:
@@ -470,8 +470,8 @@ networks:
     external: true
     name: ##DOCKER_BRIDGE_NM##
 EOF
-__COMMAND_END__
-__COMMANDS_END__
+__EOF_END__
+__EOFS_END__
 __DOCKER_END__
 __CADDYS_START__
 __CADDY_START__
