@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 2:00
+# 2:04
 # 자동화 스크립트 (INI 스타일 NFO 대응)
 # - NFO 사용자정의 마커(__DOCKER__, __COMMAND__, etc) 직접 파싱
 # - 환경변수 ##KEY## 형식 치환
@@ -130,26 +130,24 @@ run_commands() {
     in_c {print}
   ' "$NFO_FILE")
 
+  # cmds_block의 모든 내용을 담은 후, 
   mapfile -t commands <<< "$(
     awk '
       BEGIN {in_cmd=0; cmd=""}
       { line=$0; sub(/\r$/, "", line) }
       line ~ /^__COMMAND_START__$/ {in_cmd=1; cmd=""; next}
-      line ~ /^__COMMAND_END__$/   {if (in_cmd) print cmd; cmd=""; in_cmd=0; next}
-      {if(in_cmd) cmd=cmd line "\n"}
-      END {if(cmd!="") print cmd}
-  ' <<< "$cmds_block"
+      line ~ /^__COMMAND_END__$/ { if(in_cmd) { print cmd }; cmd=""; in_cmd=0; next }
+      { if(in_cmd) cmd=cmd line ORS }
+      END { if(cmd!="") print cmd }
+    ' <<< "$cmds_block"
   )"
 
   for cmd in "${commands[@]}"; do
-    # 치환 코드 생략
-    # 마지막 개행 제거 (EOF 뒤의 개행 방지)
-    cmd_clean=$(printf "%s" "$cmd" | sed ':a;N;$!ba;s/\n$//')
     tmpf=$(mktemp)
-    printf "%s" "$cmd_clean" > "$tmpf"
-    echo "=== debug 임시스크립트 ==="
+    printf "%s" "$cmd" > "$tmpf"
+    echo "==== 임시파일 DEBUG ===="
     cat -A "$tmpf"
-    echo "========================="
+    echo "==== 임시파일 END ======"
     bash "$tmpf"
     rm -f "$tmpf"
   done
