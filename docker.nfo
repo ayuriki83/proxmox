@@ -155,7 +155,7 @@ gds_endpoint = https://api.sjva.me/v1/gds_auth
 EOF
 </command>
 <command>
-cat > filter.txt << 'EOF'
+cat > /docker/rclone/filter.txt << 'EOF'
 - Featurettes/**
 EOF
 </command>
