@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 1:07
+# 1:10
 # 자동화 스크립트 (INI 스타일 NFO 대응)
 # - NFO 사용자정의 마커(__DOCKER__, __COMMAND__, etc) 직접 파싱
 # - 환경변수 ##KEY## 형식 치환
@@ -79,18 +79,9 @@ for i in "${!DOCKER_NAMES[@]}"; do
   fi
   printf "| %3s | %-15s | %-9s |\n" "$no" "$name" "$req"
 done
-printf "|-----|----------------|----------|\n\n"
+printf "|-----|-----------------|-----------|\n\n"
 
-if (( ${#OPTIONAL_INDEX[@]} > 0 )); then
-  log "선택 가능한 서비스:"
-  for item in "${OPTIONAL_INDEX[@]}"; do
-    idx=${item%%:*}
-    rest=${item#*:}
-    num=${rest%%:*}
-    svc=${rest#*:}
-    echo "  $num) $svc"
-  done
-else
+if (( ${#OPTIONAL_INDEX[@]} == 0 )); then
   warn "선택 가능한 서비스가 없습니다."
 fi
 
