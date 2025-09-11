@@ -1,10 +1,18 @@
 #!/bin/bash
 
-# 12:44
-# 자동화 스크립트 (최신, INI 스타일 NFO 대응)
-# - NFO를 사용자정의 마커(__DOCKER__, __COMMAND__, etc)로 변경하여 직접 파싱
-# - 환경변수도 ##KEY## 형식으로 치환
-# - 각 명령어를 임시파일에 저장해 실행하여 heredoc 문제 회피
+# 12:53
+# 자동화 스크립트 (INI 스타일 NFO 대응)
+# - NFO 사용자정의 마커(__DOCKER__, __COMMAND__, etc) 직접 파싱
+# - 환경변수 ##KEY## 형식 치환
+# - 명령어 임시파일 실행 (heredoc 문제 없음)
+# - for/if/전역에서 local 사용 없이 변수로 선언
+
+set -e
+
+log() { echo "[$(date '+%T')] $*"; }
+info() { echo "[$(date '+%T')][INFO] $*"; }
+warn() { echo "[$(date '+%T')][WARN] $*"; }
+err() { echo "[$(date '+%T')][ERROR]" "$@" >&2 }
 
 NFO_FILE="./docker.nfo"
 ENV_FILE="./docker.env"
@@ -26,10 +34,10 @@ else
   touch "$ENV_FILE"
 fi
 
-# NFO 내부 변환 필요없으므로 그대로 NFO_FILE 읽음
 # 환경변수 추출
 mapfile -t ENV_KEYS < <(grep -oP '##\K[^#]+(?=##)' "$NFO_FILE" | sort -u)
 
+# 환경변수 입력 함수 (함수 내부에서만 local 사용)
 load_env() {
   local key="$1"
   if [ -z "${ENV_VALUES[$key]}" ]; then
@@ -38,12 +46,11 @@ load_env() {
     echo "$key=\"$val\"" >> "$ENV_FILE"
   fi
 }
-
 for key in "${ENV_KEYS[@]}"; do
   load_env "$key"
 done
 
-# 도커 서비스 명과 필수 여부 읽기
+# 도커 서비스 정보 파싱
 DOCKER_NAMES=()
 DOCKER_REQUIRED=()
 while IFS= read -r line; do
@@ -53,8 +60,8 @@ while IFS= read -r line; do
   fi
 done < "$NFO_FILE"
 
-# 서비스 출력 및 번호 매기기 (선택 가능 항목만 번호)
-echo
+# 서비스 표 출력 및 옵션 번호 부여
+log
 printf "========== Docker Services ==========\n"
 printf "| %3s | %-15s | %-9s |\n" "No." "Name" "Required"
 printf "|-----|----------------|----------|\n"
@@ -73,60 +80,61 @@ for i in "${!DOCKER_NAMES[@]}"; do
 done
 printf "|-----|----------------|----------|\n\n"
 
-# 선택 안내
+# 선택 서비스 안내 (옵션만 번호와 이름 출력)
 if (( ${#OPTIONAL_INDEX[@]} > 0 )); then
-  echo "선택 가능한 서비스:"
+  log "선택 가능한 서비스:"
   for item in "${OPTIONAL_INDEX[@]}"; do
-    local idx=${item%%:*}
-    local rest=${item#*:}
-    local num=${rest%%:*}
-    local svc=${rest#*:}
+    idx=${item%%:*}
+    rest=${item#*:}
+    num=${rest%%:*}
+    svc=${rest#*:}
     echo "  $num) $svc"
   done
 else
-  echo "선택 가능한 서비스가 없습니다."
+  warn "선택 가능한 서비스가 없습니다."
 fi
 
+# 옵션 서비스 선택 입력
 read -rp "실행할 서비스 번호를 ','로 구분하여 입력하세요 (예: 1,3,5): " input_line
 IFS=',' read -r -a selected_nums <<< "$input_line"
 
+# 선택된 옵션 서비스 해시 선언
 declare -A SELECTED_SERVICES=()
 for num in "${selected_nums[@]}"; do
   num_trimmed=$(echo "$num" | xargs)
   for item in "${OPTIONAL_INDEX[@]}"; do
-    local idx=${item%%:*}
-    local rest=${item#*:}
-    local n=${rest%%:*}
-    local s=${rest#*:}
+    idx=${item%%:*}
+    rest=${item#*:}
+    n=${rest%%:*}
+    s=${rest#*:}
     if [[ "$num_trimmed" == "$n" ]]; then
       SELECTED_SERVICES["$s"]=1
     fi
   done
 done
 
-# 실행 대상 합치기
+# 필수 및 옵션 서비스 합치기
 REQUIRED=()
 OPTIONAL=()
 for i in "${!DOCKER_NAMES[@]}"; do
-  local name="${DOCKER_NAMES[i]}"
-  local required="${DOCKER_REQUIRED[i]}"
+  name="${DOCKER_NAMES[i]}"
+  required="${DOCKER_REQUIRED[i]}"
   if [[ "$required" == "true" ]]; then
     REQUIRED+=("$name")
   elif [[ -n "${SELECTED_SERVICES[$name]}" ]]; then
     OPTIONAL+=("$name")
   fi
 done
-
 ALL_SERVICES=("${REQUIRED[@]}" "${OPTIONAL[@]}")
 
 echo
 echo "실행 대상: ${ALL_SERVICES[*]}"
 
-# 명령 실행 함수
+# 명령 실행 함수 (함수 내부에서만 local 사용)
 run_commands() {
   local svc="$1"
-  echo
-  echo "=== 실행: $svc ==="
+  log
+  log "=== 실행: $svc ==="
 
   local cmds_block
   cmds_block=$(awk -v svc="$svc" '
@@ -152,7 +160,6 @@ run_commands() {
     for key in "${!ENV_VALUES[@]}"; do
       cmd=${cmd//"##$key##"/${ENV_VALUES[$key]}}
     done
-    # 직접 파일에 기록하고 실행
     tmpf=$(mktemp)
     printf "%s\n" "$cmd" > "$tmpf"
     bash "$tmpf"
@@ -202,7 +209,7 @@ done
 mkdir -p docker/caddy/conf
 echo "$final_block" > docker/caddy/conf/Caddyfile
 
-echo "모든 작업 완료. Caddyfile 생성됨."
+log "모든 작업 완료. Caddyfile 생성됨."
 
 # 필요시 caddy 재시작:
 # docker exec caddy caddy reload || echo "caddy reload 실패"
