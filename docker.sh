@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 11:26
+# 11:28
 # 자동화 스크립트 (docker.sh 수정판)
 # - docker.nfo 읽어서 docker 서비스 리스트 및 compose, caddy 설정 추출 및 실행
 # - docker.env 읽어 환경변수 불러오고, 없으면 입력받음
@@ -30,7 +30,7 @@ else
 fi
 
 # env 변수 리스트 nfo에서 [] 변수 자동추출 후 로드 또는 사용자 입력
-mapfile -t ENV_KEYS < <(grep -oP '\[\K##^\##]+' "$NFO_FILE" | sort -u)
+mapfile -t ENV_KEYS < <(grep -oP '##\K[^#]+(?=##)' "$NFO_FILE" | sort -u)
 
 load_or_prompt_env() {
   local key="$1"
