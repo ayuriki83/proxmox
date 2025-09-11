@@ -1,7 +1,11 @@
 <dockers>
 <docker name="caddy" required="true">
-<compose>
-mkdir -p /docker/caddy/{conf,log} && cat >/docker/caddy/docker-compose.yml << 'EOF'
+<commands>
+<command>
+mkdir -p /docker/caddy/{conf,log}
+</command>
+<command>
+cat > /docker/caddy/docker-compose.yml << 'EOF'
 services:
   caddy:
     container_name: caddy
@@ -28,12 +32,17 @@ networks:
     external: true
     name: ##DOCKER_BRIDGE_NM##
 EOF
-</compose>
+</command>
+</commands>
 </docker>
 
 <docker name="portainer" required="true" >
-<compose>
-mkdir -p /docker/portainer && cat > /docker/portainer/docker-compose.yml << 'EOF'
+<commands>
+<command>
+mkdir -p /docker/portainer
+</command>
+<command>
+cat > /docker/portainer/docker-compose.yml << 'EOF'
 version: "3.8"
 services:
   portainer:
@@ -60,7 +69,8 @@ networks:
     external: true
     name ##DOCKER_BRIDGE_NM##
 EOF
-</compose>
+</command>
+</commands>
 <caddys>
 <caddy>
     # Portainer
@@ -76,8 +86,12 @@ EOF
 </docker>
 
 <docker name="rclone" required="true">
-<compose>
-mkdir -p /docker/rclone && cat > /docker/rclone/docker-compose.yml << 'EOF'
+<commands>
+<command>
+mkdir -p /docker/rclone
+</command>
+<command>
+cat > /docker/rclone/docker-compose.yml << 'EOF'
 version: '3'
 services:
   rclone:
@@ -128,7 +142,10 @@ networks:
   default:
     external: true
     name: ##DOCKER_BRIDGE_NM##
-EOF &&  cat > /docker/rclone/rclone.conf << 'EOF'
+EOF
+</command>
+<command>
+cat > /docker/rclone/rclone.conf << 'EOF'
 [google]
 type = drive
 scope = drive
@@ -138,12 +155,17 @@ gds_endpoint = https://api.sjva.me/v1/gds_auth
 EOF && cat > filter.txt << 'EOF'
 - Featurettes/**
 EOF
-</compose>
+</command>
+</commands>
 </docker>
 
 <docker name="ff_plex" required="true">
-<compose>
-mkdir -p /docker/ff_plex/{ff,plex} && mkdir -p /docker/ff_plex/plex/{config,transcode} && cat > /docker/ff_plex/docker-compose.yml << 'EOF'
+<commands>
+<command>
+mkdir -p /docker/ff_plex/{ff,plex} && mkdir -p /docker/ff_plex/plex/{config,transcode}
+</command>
+<command>
+cat > /docker/ff_plex/docker-compose.yml << 'EOF'
 version: '3'
 services: 
   ff:
@@ -205,7 +227,8 @@ networks:
     external: true
     name: ##DOCKER_BRIDGE_NM##
 EOF
-</compose>
+</command>
+</commands>
 <caddys>
 <caddy>
     # Plex Media Server + Hook
@@ -238,8 +261,12 @@ EOF
 </docker>
 
 <docker name="jellyfin" required="false">
-<compose>
-mkdir -p /docker/jellyfin/{cache,config} && cat > /docker/jellyfin/docker-compose.yml << 'EOF'
+<commands>
+<command>
+mkdir -p /docker/jellyfin/{cache,config}
+</command>
+<command>
+cat > /docker/jellyfin/docker-compose.yml << 'EOF'
 version: "3.7"
 services:
   jellyfin:
@@ -263,7 +290,8 @@ networks:
     external: true
     name: ##DOCKER_BRIDGE_NM##
 EOF
-</compose>
+</command>
+</commands>
 <caddys>
 <caddy>
     # Jellyfin
@@ -279,8 +307,12 @@ EOF
 </docker>
 
 <docker name="kavita" required="false">
-<compose>
-mkdir -p /docker/kavita && cat > /docker/kavita/docker-compose.yml << 'EOF'
+<commands>
+<command>
+mkdir -p /docker/kavita
+</command>
+<command>
+cat > /docker/kavita/docker-compose.yml << 'EOF'
 version: '3.3'
 services:
   kavita:
@@ -308,7 +340,8 @@ networks:
     external: true
     name: ##DOCKER_BRIDGE_NM##
 EOF
-</compose>
+</command>
+</commands>
 <caddys>
 <caddy>
     # Kavita
@@ -324,8 +357,12 @@ EOF
 </docker>
 
 <docker name="beszel" required="false">
-<compose>
-mkdir -p /docker/beszel && cat > /docker/beszel/docker-compose.yml << 'EOF'
+<commands>
+<command>
+mkdir -p /docker/beszel
+</command>
+<command>
+cat > /docker/beszel/docker-compose.yml << 'EOF'
 version: "3.8"
 services:
   beszel:
@@ -349,7 +386,8 @@ networks:
     external: true
     name: ##DOCKER_BRIDGE_NM##
 EOF
-</compose>
+</command>
+</commands>
 <caddys>
 <caddy>
     # Beszel
@@ -365,8 +403,12 @@ EOF
 </docker>
 
 <docker name="uptime-kuma" required="false">
-<compose>
-mkdir -p /docker/uptime-kuma && cat > /docker/uptime-kuma/docker-compose.yml << 'EOF'
+<commands>
+<command>
+mkdir -p /docker/uptime-kuma
+</command>
+<command>
+cat > /docker/uptime-kuma/docker-compose.yml << 'EOF'
 version: '3.3'
 services:
   uptime-kuma:
@@ -385,7 +427,8 @@ networks:
     external: true
     name: ##DOCKER_BRIDGE_NM##
 EOF
-</compose>
+</command>
+</commands>
 <caddys>
 <caddy>
     # Uptime Kuma
@@ -401,8 +444,12 @@ EOF
 </docker>
 
 <docker name="vaultwarden" required="false">
-<compose>
-mkdir -p /docker/vaultwarden && cat > /docker/vaultwarden/docker-compose.yml << 'EOF'
+<commands>
+<command>
+mkdir -p /docker/vaultwarden
+</command>
+<command>
+cat > /docker/vaultwarden/docker-compose.yml << 'EOF'
 version: '3.1'
 services:
   vaultwarden:
@@ -420,7 +467,8 @@ networks:
     external: true
     name: ##DOCKER_BRIDGE_NM##
 EOF
-</compose>
+</command>
+</commands>
 </docker>
 <caddys>
 <caddy>
