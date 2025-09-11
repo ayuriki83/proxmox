@@ -71,6 +71,7 @@ for i in "${!DOCKER_NAMES[@]}"; do
     opt_seq=$((opt_seq + 1))
   fi
   printf "| %3s | %-15s | %-9s |\n" "$no" "$name" "$req"
+  printf "|-----|-----------------|-----------|\n"
 done
 printf "\n"
 
