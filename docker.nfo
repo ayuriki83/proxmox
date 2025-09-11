@@ -1,5 +1,5 @@
 __DOCKERS_START__
-__DOCKER__ name="caddy" req="true"
+__DOCKER_START__ name="caddy" req="true"
 __CMD_START__
 mkdir -p /docker/caddy/{conf,log}
 __CMD_END__
@@ -36,7 +36,7 @@ __EOF_END__
 __EOFS_END__
 __DOCKER_END__
 
-__DOCKER__ name="portainer" req="true" 
+__DOCKER_START__ name="portainer" req="true" 
 __CMD_START__
 mkdir -p /docker/portainer
 __CMD_END__
@@ -85,7 +85,7 @@ __CADDY_END__
 __CADDYS_END__
 __DOCKER_END__
 
-__DOCKER__ name="rclone" req="true"
+__DOCKER_START__ name="rclone" req="true"
 __CMD_START__
 mkdir -p /docker/rclone
 __CMD_END__
@@ -162,7 +162,7 @@ __EOF_END__
 __EOFS_END__
 __DOCKER_END__
 
-__DOCKER__ name="ff_plex" req="true"
+__DOCKER_START__ name="ff_plex" req="true"
 __CMD_START__
 mkdir -p /docker/ff_plex/{ff,plex} && mkdir -p /docker/ff_plex/plex/{config,transcode}
 __CMD_END__
@@ -263,7 +263,7 @@ __CADDY_END__
 __CADDYS_END__
 __DOCKER_END__
 
-__DOCKER__ name="jellyfin" req="false"
+__DOCKER_START__ name="jellyfin" req="false"
 __CMD_START__
 mkdir -p /docker/jellyfin/{cache,config}
 __CMD_END__
@@ -309,7 +309,7 @@ __CADDY_END__
 __CADDYS_END__
 __DOCKER_END__
 
-__DOCKER__ name="kavita" req="false"
+__DOCKER_START__ name="kavita" req="false"
 __CMD_START__
 mkdir -p /docker/kavita
 __CMD_END__
@@ -359,7 +359,7 @@ __CADDY_END__
 __CADDYS_END__
 __DOCKER_END__
 
-__DOCKER__ name="beszel" req="false"
+__DOCKER_START__ name="beszel" req="false"
 __CMD_START__
 mkdir -p /docker/beszel
 __CMD_END__
@@ -405,7 +405,7 @@ __CADDY_END__
 __CADDYS_END__
 __DOCKER_END__
 
-__DOCKER__ name="uptime-kuma" req="false"
+__DOCKER_START__ name="uptime-kuma" req="false"
 __CMD_START__
 mkdir -p /docker/uptime-kuma
 __CMD_END__
@@ -446,7 +446,7 @@ __CADDY_END__
 __CADDYS_END__
 __DOCKER_END__
 
-__DOCKER__ name="vaultwarden" req="false"
+__DOCKER_START__ name="vaultwarden" req="false"
 __CMD_START__
 mkdir -p /docker/vaultwarden
 __CMD_END__
