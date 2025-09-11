@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 2:58
+# 3:02
 # 자동화 스크립트 (커스텀 INI 스타일 NFO 대응: CMD/EOF 구분)
 # - NFO 사용자정의 마커(__DOCKER__, __CMD__, __EOFS__, __EOF__, etc) 직접 파싱
 # - 환경변수 ##KEY## 형식 치환
@@ -149,7 +149,7 @@ run_commands() {
       echo "==== 단일명령 DEBUG: 실행할 명령어 ===="
       echo "$cmd"
       echo "==== 명령어 실행 시작 ===="
-      bash -c "$cmd"
+      bash -c "$cmd" 2>&1 | tee /tmp/docker_command_last.log
       echo "==== 명령어 실행 종료 ===="
     fi
   done
@@ -163,7 +163,7 @@ run_commands() {
       cat -A "$tmpf"
       echo "==== 임시파일 END ===="
       echo "==== 명령어 실행 시작 ===="
-      bash "$tmpf"
+      bash "$tmpf" 2>&1 | tee /tmp/docker_command_last.log
       echo "==== 명령어 실행 종료 ===="
       rm -f "$tmpf"
     fi
