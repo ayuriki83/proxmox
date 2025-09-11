@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 12:22
+# 12:23
 # 자동화 스크립트 (최신 수정판)
 # - docker.nfo에서 docker 서비스, commands, caddy 설정 추출
 # - docker.env에서 환경변수 읽기 및 부족시 입력
@@ -116,8 +116,8 @@ done
 REQUIRED_SERVICES=()
 OPTIONAL_SERVICES=()
 for i in "${!DOCKER_NAMES[@]}"; do
-  local name="${DOCKER_NAMES[i]}"
-  local required="${DOCKER_REQUIRED[i]}"
+  name="${DOCKER_NAMES[i]}"
+  required="${DOCKER_REQUIRED[i]}"
   if [[ "$required" == "true" ]]; then
     REQUIRED_SERVICES+=("$name")
   elif [[ -n "${SELECTED_SERVICES[$name]}" ]]; then
