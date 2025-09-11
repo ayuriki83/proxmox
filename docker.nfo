@@ -1,5 +1,5 @@
 __DOCKERS_START__
-__DOCKER__ name="caddy" required="true"
+__DOCKER__ name="caddy" req_yn="true"
 __COMMANDS_START__
 __COMMAND_START__
 mkdir -p /docker/caddy/{conf,log}
@@ -36,7 +36,7 @@ __COMMAND_END__
 __COMMANDS_END__
 __DOCKER_END__
 
-__DOCKER__ name="portainer" required="true" 
+__DOCKER__ name="portainer" req_yn="true" 
 __COMMANDS_START__
 __COMMAND_START__
 mkdir -p /docker/portainer
@@ -85,7 +85,7 @@ __CADDY_END__
 __CADDYS_END__
 __DOCKER_END__
 
-__DOCKER__ name="rclone" required="true">
+__DOCKER__ name="rclone" req_yn="true">
 __COMMANDS_START__
 __COMMAND_START__
 mkdir -p /docker/rclone
@@ -162,7 +162,7 @@ __COMMAND_END__
 __COMMANDS_END__
 __DOCKER_END__
 
-__DOCKER__ name="ff_plex" required="true">
+__DOCKER__ name="ff_plex" req_yn="true">
 __COMMANDS_START__
 __COMMAND_START__
 mkdir -p /docker/ff_plex/{ff,plex} && mkdir -p /docker/ff_plex/plex/{config,transcode}
@@ -263,7 +263,7 @@ __CADDY_END__
 __CADDYS_END__
 __DOCKER_END__
 
-__DOCKER__ name="jellyfin" required="false">
+__DOCKER__ name="jellyfin" req_yn="false">
 __COMMANDS_START__
 __COMMAND_START__
 mkdir -p /docker/jellyfin/{cache,config}
@@ -309,7 +309,7 @@ __CADDY_END__
 __CADDYS_END__
 __DOCKER_END__
 
-__DOCKER__ name="kavita" required="false">
+__DOCKER__ name="kavita" req_yn="false">
 __COMMANDS_START__
 __COMMAND_START__
 mkdir -p /docker/kavita
@@ -359,7 +359,7 @@ __CADDY_END__
 __CADDYS_END__
 __DOCKER_END__
 
-__DOCKER__ name="beszel" required="false">
+__DOCKER__ name="beszel" req_yn="false">
 __COMMANDS_START__
 __COMMAND_START__
 mkdir -p /docker/beszel
@@ -405,7 +405,7 @@ __CADDY_END__
 __CADDYS_END__
 __DOCKER_END__
 
-__DOCKER__ name="uptime-kuma" required="false">
+__DOCKER__ name="uptime-kuma" req_yn="false">
 __COMMANDS_START__
 __COMMAND_START__
 mkdir -p /docker/uptime-kuma
@@ -446,7 +446,7 @@ __CADDY_END__
 __CADDYS_END__
 __DOCKER_END__
 
-__DOCKER__ name="vaultwarden" required="false">
+__DOCKER__ name="vaultwarden" req_yn="false">
 __COMMANDS_START__
 __COMMAND_START__
 mkdir -p /docker/vaultwarden
