@@ -7,13 +7,26 @@
 # - [ ] 변수 치환 자동 처리
 # - 선택 도커 서비스 실행 및 Caddyfile에 서비스별 리버스프록시 설정 반영
 
+log() { echo "[$(date '+%T')] $*"; }
+info() { echo "[$(date '+%T')][INFO] $*"; }
+err() { echo "[$(date '+%T')][ERROR]" "$@" >&2 }
+
 NFO_FILE="./docker.nfo"
-ENV_FILE="./docker.env"
+CONFIG_FILE="./docker.env"
 
 if [ ! -f "$NFO_FILE" ]; then
   echo "오류: $NFO_FILE 파일이 없습니다."
   exit 1
 fi
+
+# 설정 파일 위치 지정 (스크립트와 같은 디렉토리 등)
+CONFIG_FILE="./proxmox.conf"
+if [ -f "$CONFIG_FILE" ]; then
+    source "$CONFIG_FILE"
+else
+    info "설정 파일 $CONFIG_FILE 이(가) 없습니다. 기본값 사용."
+fi
+
 
 # 1. env 파일 읽기 또는 없을 경우 생성
 declare -A ENV_VALUES
