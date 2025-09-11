@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 11:52
+# 12:03
 # 자동화 스크립트 (docker.sh 수정판)
 # - docker.nfo 읽어서 docker 서비스 리스트 및 compose, caddy 설정 추출 및 실행
 # - docker.env 읽어 환경변수 불러오고, 없으면 입력받음
@@ -128,30 +128,42 @@ run_compose_for_service() {
   echo
   echo ">>> Setting up service: $svc"
 
-  local compose_block
-  compose_block=$(awk -v svc="$svc" '
-    BEGIN {in_docker=0; in_compose=0;}
+  # compose_block → commands 블록 전체 읽기
+  local commands_block
+  commands_block=$(awk -v svc="$svc" '
+    BEGIN {in_docker=0; in_commands=0;}
     /<docker name="'"$svc"'"/ {in_docker=1;}
-    in_docker && /<compose>/ {in_compose=1; next;}
-    in_compose && /<\/compose>/ {in_compose=0; exit;}
-    in_compose {print;}
+    in_docker && /<commands>/ {in_commands=1; next;}
+    in_commands && /<\/commands>/ {in_commands=0; exit;}
+    in_commands {print;}
   ' "$NFO_FILE")
 
-  if [ -z "$compose_block" ]; then
-    echo "오류: $svc 서비스의 compose 블록을 찾을 수 없습니다."
+  if [ -z "$commands_block" ]; then
+    echo "오류: $svc 서비스의 commands 블록을 찾을 수 없습니다."
     return 1
   fi
 
-  # ##키## 치환
-  for key in "${!ENV_VALUES[@]}"; do
-    compose_block=$(echo "$compose_block" | sed "s/##${key}##/${ENV_VALUES[$key]//\//\\/}/g")
-  done
+  # 각 <command> ... </command> 단위로 분리 및 실행
+  # awk로 <command>...</command>만 추출
+  mapfile -t command_list < <(echo "$commands_block" | awk '
+    BEGIN {RS="</command>"}
+    {
+      if (match($0,/<command>/)) {
+        cmd=substr($0, RSTART+9)
+        print cmd
+      }
+    }
+  ' )
 
-  # ★ 임시 쉘 파일에 저장하고 bash로 실행해야 heredoc 정상동작!
-  tmpfile=$(mktemp)
-  echo "$compose_block" > "$tmpfile"
-  bash "$tmpfile"
-  rm -f "$tmpfile"
+  for cmd in "${command_list[@]}"; do
+    # 환경변수 치환
+    for key in "${!ENV_VALUES[@]}"; do
+      cmd=$(echo "$cmd" | sed "s/##${key}##/${ENV_VALUES[$key]//\//\\/}/g")
+    done
+
+    # 명령 실행
+    bash -c "$cmd"
+  done
 }
 
 for svc in "${ALL_SERVICES[@]}"; do
