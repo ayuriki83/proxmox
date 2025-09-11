@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 1:19
+# 1:25
 # 자동화 스크립트 (INI 스타일 NFO 대응)
 # - NFO 사용자정의 마커(__DOCKER__, __COMMAND__, etc) 직접 파싱
 # - 환경변수 ##KEY## 형식 치환
@@ -68,9 +68,9 @@ while IFS= read -r line; do
   fi
 done < "$NFO_FILE"
 
-log_printf "========== Docker Services ==========\n"
-log_printf "| %3s | %-15s | %-9s |\n" "No." "Name" "ReqYn"
-log_printf "|-----|-----------------|-----------|\n"
+log_printf "========== Docker Services =========="
+log_printf "| %3s | %-15s | %-9s |" "$no" "$name" "$req"
+log_printf "|-----|-----------------|-----------|"
 opt_idx=1
 OPTIONAL_INDEX=()
 for i in "${!DOCKER_NAMES[@]}"; do
@@ -84,7 +84,7 @@ for i in "${!DOCKER_NAMES[@]}"; do
   fi
   log_printf "| %3s | %-15s | %-9s |\n" "$no" "$name" "$req"
 done
-log_printf "|-----|-----------------|-----------|\n\n"
+log_printf "|-----|-----------------|-----------|"
 
 if (( ${#OPTIONAL_INDEX[@]} == 0 )); then
   log "[WARN] 선택 가능한 서비스가 없습니다."
@@ -151,6 +151,7 @@ run_commands() {
     for key in "${!ENV_VALUES[@]}"; do
       cmd=${cmd//"##$key##"/${ENV_VALUES[$key]}}
     done
+    log "$cmd"
     tmpf=$(mktemp)
     printf "%s\n" "$cmd" > "$tmpf"
     bash "$tmpf"
@@ -195,8 +196,8 @@ for key in "${!ENV_VALUES[@]}"; do
   final_block=${final_block//"##$key##"/"${ENV_VALUES[$key]}"}
 done
 
-mkdir -p docker/caddy/conf
-echo "$final_block" > docker/caddy/conf/Caddyfile
+mkdir -p /docker/caddy/conf
+echo "$final_block" > /docker/caddy/conf/Caddyfile
 
 log "모든 작업 완료. Caddyfile 생성됨."
 
