@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 10:52
+# 10:59
 # 자동화 스크립트 (docker.sh 재작성)
 # - docker.nfo 읽어서 docker 서비스 리스트와 compose, caddy 설정 추출 및 실행
 # - docker.env 읽어서 환경변수 할당, 없으면 입력받아 저장
@@ -163,10 +163,12 @@ for svc in "${ALL_SERVICES[@]}"; do
   fi
 done
 
-FINAL_BLOCK=$(echo "$FINAL_BLOCK" | sed "/\[DOCKER SERVICE\]/{
-  s/\[DOCKER SERVICE\]/$(echo "$DOCKER_CADDY_CONFIGS" | sed 's/[\/&]/\\&/g')
+# 변경: [DOCKER SERVICE] -> <DOCKER> 로 치환 대상 변경
+FINAL_BLOCK=$(echo "$FINAL_BLOCK" | sed "/<DOCKER>/{
+  s|<DOCKER>|$(echo "$DOCKER_CADDY_CONFIGS" | sed 's/[\/&]/\\&/g')|
 }")
 
+# 나머지 [] 변수 치환
 for key in "${!ENV_VALUES[@]}"; do
   FINAL_BLOCK=$(echo "$FINAL_BLOCK" | sed "s/\[$key\]/${ENV_VALUES[$key]//\//\\/}/g")
 done
