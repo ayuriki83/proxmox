@@ -117,7 +117,6 @@ echo "실행 대상: ${ALL_SERVICES[*]}"
 
 run_commands() {
   local svc="$1"
-  echo
   echo "=== 실행: $svc ==="
 
   # awk 내 변수 안전 인용을 위해 변수 전달 방식 보완
