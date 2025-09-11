@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 11:37
+# 11:39
 # 자동화 스크립트 (docker.sh 수정판)
 # - docker.nfo 읽어서 docker 서비스 리스트 및 compose, caddy 설정 추출 및 실행
 # - docker.env 읽어 환경변수 불러오고, 없으면 입력받음
@@ -58,7 +58,7 @@ done < "$NFO_FILE"
 echo
 printf "===== Docker Services =====\n"
 printf "| %3s | %-15s | %-9s |\n" "No." "Name" "Required"
-printf "|-----|-----------------|----------|\n"
+printf "|-----|-----------------|-----------|\n"
 opt_seq=1
 OPTIONAL_INDEX_MAP=()
 for i in "${!DOCKER_NAMES[@]}"; do
@@ -76,14 +76,11 @@ printf "\n"
 
 # 옵션 서비스 선택 리스트와 입력 안내
 if (( ${#OPTIONAL_INDEX_MAP[@]} > 0 )); then
-  echo "선택 가능한 선택형(옵션) 서비스 목록:"
   for v in "${OPTIONAL_INDEX_MAP[@]}"; do
     tmp="${v#*:}"
     num="${tmp%%:*}"
     svc="${tmp#*:}"
-    echo "  $num) $svc"
   done
-  echo
 else
   echo "선택 가능한 옵션 서비스가 없습니다."
 fi
