@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 11:31
+# 11:37
 # 자동화 스크립트 (docker.sh 수정판)
 # - docker.nfo 읽어서 docker 서비스 리스트 및 compose, caddy 설정 추출 및 실행
 # - docker.env 읽어 환경변수 불러오고, 없으면 입력받음
@@ -48,50 +48,57 @@ done
 # 2. nfo에서 docker name, required 추출 및 표 출력
 DOCKER_NAMES=()
 DOCKER_REQUIRED=()
+while IFS= read -r line; do
+  if [[ $line =~ \<docker[[:space:]]+name=\"([^\"]+)\"[[:space:]]+required=\"(true|false)\" ]]; then
+    DOCKER_NAMES+=("${BASH_REMATCH[1]}")
+    DOCKER_REQUIRED+=("${BASH_REMATCH[2]}")
+  fi
+done < "$NFO_FILE"
 
-printf "\n===== Docker Services =====\n"
+echo
+printf "===== Docker Services =====\n"
 printf "| %3s | %-15s | %-9s |\n" "No." "Name" "Required"
 printf "|-----|-----------------|----------|\n"
-OPTIONAL_INDEX_MAP=() # required=false 인덱스를 위한 배열
-
 opt_seq=1
+OPTIONAL_INDEX_MAP=()
 for i in "${!DOCKER_NAMES[@]}"; do
   name="${DOCKER_NAMES[i]}"
   req="${DOCKER_REQUIRED[i]}"
-  printf "| %3s | %-15s | %-9s |\n" "$((i+1))" "$name" "$req"
-
-  # required=false만 선택 인덱스 매핑
+  no=""
   if [[ "$req" == "false" ]]; then
+    no="$opt_seq"
     OPTIONAL_INDEX_MAP+=("${i}:${opt_seq}:${name}")
     opt_seq=$((opt_seq + 1))
   fi
+  printf "| %3s | %-15s | %-9s |\n" "$no" "$name" "$req"
 done
 printf "\n"
 
-# 표 출력 후 required=false 서비스에 순번 매핑해서 별도 보여줌
-echo "선택 가능한 선택형(옵션) 서비스 목록:"
-for v in "${OPTIONAL_INDEX_MAP[@]}"; do
-  idx="${v%%:*}"
-  tmp="${v#*:}"
-  num="${tmp%%:*}"
-  svc="${tmp#*:}"
-  echo "  $num) $svc"
-done
+# 옵션 서비스 선택 리스트와 입력 안내
+if (( ${#OPTIONAL_INDEX_MAP[@]} > 0 )); then
+  echo "선택 가능한 선택형(옵션) 서비스 목록:"
+  for v in "${OPTIONAL_INDEX_MAP[@]}"; do
+    tmp="${v#*:}"
+    num="${tmp%%:*}"
+    svc="${tmp#*:}"
+    echo "  $num) $svc"
+  done
+  echo
+else
+  echo "선택 가능한 옵션 서비스가 없습니다."
+fi
 
-echo
 echo "실행할 선택형 서비스의 순번을 쉼표(,)로 골라주세요 (예: 2,5) :"
 read -rp "선택: " selected_optional
-
 IFS=',' read -r -a selected_arr <<< "$selected_optional"
+
 declare -A OPTIONAL_SELECTIONS
 for sel in "${selected_arr[@]}"; do
   sel=$(echo "$sel" | xargs)
   for v in "${OPTIONAL_INDEX_MAP[@]}"; do
-    idx="${v%%:*}"
     tmp="${v#*:}"
     num="${tmp%%:*}"
     svc="${tmp#*:}"
-
     if [[ "$sel" == "$num" ]]; then
       OPTIONAL_SELECTIONS["$svc"]=true
     fi
@@ -100,7 +107,6 @@ done
 
 REQUIRED_SERVICES=()
 OPTIONAL_SERVICES=()
-
 for i in "${!DOCKER_NAMES[@]}"; do
   name="${DOCKER_NAMES[i]}"
   req="${DOCKER_REQUIRED[i]}"
@@ -110,8 +116,10 @@ for i in "${!DOCKER_NAMES[@]}"; do
     OPTIONAL_SERVICES+=("$name")
   fi
 done
-
 ALL_SERVICES=("${REQUIRED_SERVICES[@]}" "${OPTIONAL_SERVICES[@]}")
+
+echo
+echo "실행 대상 서비스: ${ALL_SERVICES[*]}"
 
 echo
 echo "실행 대상 서비스: ${ALL_SERVICES[*]}"
