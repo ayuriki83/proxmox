@@ -457,7 +457,7 @@ cat > /docker/caddy/conf/Caddyfile << 'EOF'
         }
     }
 
-    $DOCKER
+    _DOCKER_
 
     # 기본 응답 (매칭되지 않는 서브도메인)
     handle {
