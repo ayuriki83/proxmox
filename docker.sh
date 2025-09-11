@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 3:32
+# 3:42
 # 자동화 스크립트 (커스텀 INI 스타일 NFO 대응: CMD/EOF 구분)
 # - NFO 사용자정의 마커(__DOCKER_START__, __CMD__, __EOFS__, __EOF__, etc) 직접 파싱
 # - 환경변수 ##KEY## 형식 치환
@@ -123,13 +123,14 @@ run_commands() {
   # 단일명령어 블록 추출
   mapfile -t cmds < <(
     awk -v svc="$svc" '
-      $0 ~ "__DOCKER_START__ name[ \t]*=[ \t]*[\"'\'']?"svc"[\"'\'']?[ ]*req" {in_docker=1; next}
+      $0 ~ ("__DOCKER_START__ name=" svc " req") {in_docker=1; next}
       in_docker && $0 ~ /^__CMD_START__$/ {in_cmd=1; cmd=""; next}
-      in_docker && $0 ~ /^__CMD_END__$/   {if(in_cmd){print cmd}; cmd=""; in_cmd=0; next}
+      in_docker && $0 ~ /^__CMD_END__$/   {if(in_cmd && length(cmd)>0){print cmd}; cmd=""; in_cmd=0; next}
       in_docker && in_cmd && $0 !~ /^__/  {cmd=cmd $0 "\n"; next}
       $0 ~ /^__DOCKER_END__$/ {in_docker=0}
     ' "$NFO_FILE"
   )
+
 
   # 다중라인 명령 파싱 (EOFs)
   mapfile -t eofs < <(
