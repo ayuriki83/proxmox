@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 12:53
+# 1:1
 # 자동화 스크립트 (INI 스타일 NFO 대응)
 # - NFO 사용자정의 마커(__DOCKER__, __COMMAND__, etc) 직접 파싱
 # - 환경변수 ##KEY## 형식 치환
@@ -52,31 +52,31 @@ done
 
 # 도커 서비스 정보 파싱
 DOCKER_NAMES=()
-DOCKER_REQUIRED=()
+DOCKER_REQ=()
 while IFS= read -r line; do
-  if [[ $line =~ ^__DOCKER__\ name=\"([^\"]+)\"\ +required=\"([^\"]+)\" ]]; then
+  if [[ $line =~ ^__DOCKER__\ name=\"([^\"]+)\"\ +req=\"([^\"]+)\" ]]; then
     DOCKER_NAMES+=("${BASH_REMATCH[1]}")
-    DOCKER_REQUIRED+=("${BASH_REMATCH[2]}")
+    DOCKER_REQ+=("${BASH_REMATCH[2]}")
   fi
 done < "$NFO_FILE"
 
 # 서비스 표 출력 및 옵션 번호 부여
 log
 printf "========== Docker Services ==========\n"
-printf "| %3s | %-15s | %-9s |\n" "No." "Name" "Required"
+printf "| %3s | %-15s | %-9s |\n" "No." "Name" "ReqYn"
 printf "|-----|----------------|----------|\n"
 opt_idx=1
 OPTIONAL_INDEX=()
 for i in "${!DOCKER_NAMES[@]}"; do
   name="${DOCKER_NAMES[i]}"
-  required="${DOCKER_REQUIRED[i]}"
+  req="${DOCKER_REQ[i]}"
   no=""
-  if [[ "$required" == "false" ]]; then
+  if [[ "$req" == "false" ]]; then
     no=$opt_idx
     OPTIONAL_INDEX+=("${i}:${no}:${name}")
     ((opt_idx++))
   fi
-  printf "| %3s | %-15s | %-9s |\n" "$no" "$name" "$required"
+  printf "| %3s | %-15s | %-9s |\n" "$no" "$name" "$req"
 done
 printf "|-----|----------------|----------|\n\n"
 
@@ -114,18 +114,18 @@ for num in "${selected_nums[@]}"; do
 done
 
 # 필수 및 옵션 서비스 합치기
-REQUIRED=()
-OPTIONAL=()
+REQS=()
+OPTS=()
 for i in "${!DOCKER_NAMES[@]}"; do
   name="${DOCKER_NAMES[i]}"
-  required="${DOCKER_REQUIRED[i]}"
-  if [[ "$required" == "true" ]]; then
-    REQUIRED+=("$name")
+  req="${DOCKER_REQ[i]}"
+  if [[ "$req" == "true" ]]; then
+    REQS+=("$name")
   elif [[ -n "${SELECTED_SERVICES[$name]}" ]]; then
-    OPTIONAL+=("$name")
+    OPTS+=("$name")
   fi
 done
-ALL_SERVICES=("${REQUIRED[@]}" "${OPTIONAL[@]}")
+ALL_SERVICES=("${REQS[@]}" "${OPTS[@]}")
 
 echo
 echo "실행 대상: ${ALL_SERVICES[*]}"
