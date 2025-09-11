@@ -1,7 +1,7 @@
 __DOCKERS_START__
 __DOCKER_START__ name=caddy req=true
 __CMD_START__
-mkdir -p /docker/caddy/{conf,log}
+mkdir -p /docker/caddy/conf && mkdir -p /docker/caddy/log
 __CMD_END__
 __EOFS_START__
 __EOF_START__
@@ -164,7 +164,7 @@ __DOCKER_END__
 
 __DOCKER_START__ name=ff_plex req=true
 __CMD_START__
-mkdir -p /docker/ff_plex/{ff,plex} && mkdir -p /docker/ff_plex/plex/{config,transcode}
+mkdir -p /docker/ff_plex/ff && mkdir -p /docker/ff_plex/plex && mkdir -p /docker/ff_plex/plex/config && mkdir -p /docker/ff_plex/plex/transcode
 __CMD_END__
 __EOFS_START__
 __EOF_START__
@@ -265,7 +265,7 @@ __DOCKER_END__
 
 __DOCKER_START__ name=jellyfin req=false
 __CMD_START__
-mkdir -p /docker/jellyfin/{cache,config}
+mkdir -p /docker/jellyfin/cache && mkdir -p /docker/jellyfin/config
 __CMD_END__
 __EOFS_START__
 __EOF_START__
