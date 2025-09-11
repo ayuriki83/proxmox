@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 3:17
+# 3:24
 # 자동화 스크립트 (커스텀 INI 스타일 NFO 대응: CMD/EOF 구분)
 # - NFO 사용자정의 마커(__DOCKER_START__, __CMD__, __EOFS__, __EOF__, etc) 직접 파싱
 # - 환경변수 ##KEY## 형식 치환
@@ -122,7 +122,7 @@ run_commands() {
   # 단일명령어 블록 추출
   mapfile -t cmds < <(
     awk -v svc="$svc" '
-      index($0, "__DOCKER_START__ name=\""svc"\"") > 0 {in_docker=1; next}
+      $0 ~ "__DOCKER_START__ name[ \t]*=[ \t]*[\"'\'']?"svc"[\"'\'']?[ ]*req" {in_docker=1; next}
       in_docker && $0 ~ /^__CMD_START__$/ {in_cmd=1; cmd=""; next}
       in_docker && $0 ~ /^__CMD_END__$/   {if(in_cmd){print cmd}; cmd=""; in_cmd=0; next}
       in_docker && in_cmd && $0 !~ /^__/  {cmd=cmd $0 "\n"; next}
@@ -133,15 +133,18 @@ run_commands() {
   # 다중라인 명령 파싱 (EOFs)
   mapfile -t eofs < <(
     awk -v svc="$svc" '
-      index($0, "__DOCKER_START__ name=\""svc"\"") > 0 {in_docker=1; next}
+      $0 ~ "__DOCKER_START__ name[ \t]*=[ \t]*[\"'\'']?"svc"[\"'\'']?[ ]*req" {in_docker=1; next}
       in_docker && $0 ~ /^__EOFS_START__$/ {in_eofs=1; next}
       in_docker && $0 ~ /^__EOFS_END__$/   {in_eofs=0; next}
       in_docker && in_eofs && $0 ~ /^__EOF_START__$/ {in_eof=1; eofcmd=""; next}
       in_docker && in_eofs && $0 ~ /^__EOF_END__$/   {if(in_eof){print eofcmd}; eofcmd=""; in_eof=0; next}
-      in_docker && in_eofs && in_eof      {eofcmd=eofcmd $0 "\n"; next}
+      in_docker && in_eofs && in_eof && $0 !~ /^__EOF_END__$/ {eofcmd=eofcmd $0 "\n"; next}
       $0 ~ /^__DOCKER_END__$/ {in_docker=0}
     ' "$NFO_FILE"
   )
+  
+  echo "cmds count=${#cmds[@]}"; for i in "${!cmds[@]}"; do echo "-- CMD[$i] --"; echo "${cmds[$i]}"; done
+  echo "eofs count=${#eofs[@]}"; for i in "${!eofs[@]}"; do echo "-- EOF[$i] --"; echo "${eofs[$i]}"; done
 
   # 단일명령 실행
   for idx in "${!cmds[@]}"; do
@@ -160,12 +163,20 @@ run_commands() {
     tmpf=$(mktemp)
     printf "%s" "$eofcmd" > "$tmpf"
     echo "==== 다중라인명령(DEBUG $svc #$idx) ===="
-    cat -A "$tmpf"
+    cat "$tmpf"
     bash "$tmpf" 2>&1 | tee "/tmp/docker_command_${svc}_eof${idx}.log"
     echo "==== 명령 실행 종료: 반환값 ${PIPESTATUS} ===="
     rm -f "$tmpf"
   done
 }
+
+echo "eofs count=${#eofs[@]}"
+for i in "${!eofs[@]}"; do
+  echo "----- EOF[$i] 블록 전체 -----"
+  echo "${eofs[$i]}"
+  echo "-----------------------------"
+done
+
 
 for svc in "${ALL_SERVICES[@]}"; do
   run_commands "$svc"
