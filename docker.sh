@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 12:03
+# 12:08
 # 자동화 스크립트 (docker.sh 수정판)
 # - docker.nfo 읽어서 docker 서비스 리스트 및 compose, caddy 설정 추출 및 실행
 # - docker.env 읽어 환경변수 불러오고, 없으면 입력받음
@@ -119,9 +119,6 @@ ALL_SERVICES=("${REQUIRED_SERVICES[@]}" "${OPTIONAL_SERVICES[@]}")
 echo
 echo "실행 대상 서비스: ${ALL_SERVICES[*]}"
 
-echo
-echo "실행 대상 서비스: ${ALL_SERVICES[*]}"
-
 # 3. compose 실행 함수
 run_compose_for_service() {
   local svc="$1"
@@ -160,9 +157,12 @@ run_compose_for_service() {
     for key in "${!ENV_VALUES[@]}"; do
       cmd=$(echo "$cmd" | sed "s/##${key}##/${ENV_VALUES[$key]//\//\\/}/g")
     done
-
-    # 명령 실행
-    bash -c "$cmd"
+  
+    # If heredoc or multiline, always use temp file!
+    tmpfile=$(mktemp)
+    echo "$cmd" > "$tmpfile"
+    bash "$tmpfile"
+    rm -f "$tmpfile"
   done
 }
 
