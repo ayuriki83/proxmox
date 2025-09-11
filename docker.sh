@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 3:24
+# 3:26
 # 자동화 스크립트 (커스텀 INI 스타일 NFO 대응: CMD/EOF 구분)
 # - NFO 사용자정의 마커(__DOCKER_START__, __CMD__, __EOFS__, __EOF__, etc) 직접 파싱
 # - 환경변수 ##KEY## 형식 치환
@@ -52,7 +52,7 @@ done
 DOCKER_NAMES=()
 DOCKER_REQ=()
 while IFS= read -r line; do
-  if [[ $line =~ ^__DOCKER_START__\ name=\"([^\"]+)\"\ +req=\"([^\"]+)\" ]]; then
+  if [[ $line =~ ^__DOCKER_START__\ name=[\"']?([^\"'[:space:]]+)[\"']?\ req=[\"']?([^\"'[:space:]]+)[\"']? ]]; then
     DOCKER_NAMES+=("${BASH_REMATCH[1]}")
     DOCKER_REQ+=("${BASH_REMATCH[2]}")
   fi
