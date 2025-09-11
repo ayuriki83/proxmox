@@ -143,6 +143,7 @@ run_commands() {
     for key in "${!ENV_VALUES[@]}"; do
       cmd=${cmd//"##$key##"/${ENV_VALUES[$key]}}
     done
+    echo "$cmd"
     tmpf=$(mktemp)
     printf "%s\n" "$cmd" > "$tmpf"
     bash "$tmpf"
