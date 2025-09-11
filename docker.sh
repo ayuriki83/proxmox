@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 2:04
+# 2:08
 # 자동화 스크립트 (INI 스타일 NFO 대응)
 # - NFO 사용자정의 마커(__DOCKER__, __COMMAND__, etc) 직접 파싱
 # - 환경변수 ##KEY## 형식 치환
@@ -130,17 +130,17 @@ run_commands() {
     in_c {print}
   ' "$NFO_FILE")
 
-  # cmds_block의 모든 내용을 담은 후, 
-  mapfile -t commands <<< "$(
-    awk '
-      BEGIN {in_cmd=0; cmd=""}
-      { line=$0; sub(/\r$/, "", line) }
-      line ~ /^__COMMAND_START__$/ {in_cmd=1; cmd=""; next}
-      line ~ /^__COMMAND_END__$/ { if(in_cmd) { print cmd }; cmd=""; in_cmd=0; next }
-      { if(in_cmd) cmd=cmd line ORS }
-      END { if(cmd!="") print cmd }
-    ' <<< "$cmds_block"
-  )"
+  mapfile -t commands < <(
+    awk -v svc="$svc" '
+      BEGIN {in_svc=0; in_cmd=0; cmd=""}
+      $0 ~ "^__DOCKER__ name=\""svc"\"" {in_svc=1}
+      in_svc && $0 ~ "^__DOCKER__" && $0 !~ "^__DOCKER__ name=" {in_svc=0}
+      in_svc && $0 ~ "^__COMMAND_START__$" {in_cmd=1; cmd=""; next}
+      in_svc && $0 ~ "^__COMMAND_END__$" {if(in_cmd) print cmd; cmd=""; in_cmd=0; next}
+      {if(in_cmd) cmd=cmd $0 ORS}
+      END {if(cmd!="") print cmd}
+    ' "$NFO_FILE"
+  )
 
   for cmd in "${commands[@]}"; do
     tmpf=$(mktemp)
