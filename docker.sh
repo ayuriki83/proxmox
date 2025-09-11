@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 11:39
+# 11:42
 # 자동화 스크립트 (docker.sh 수정판)
 # - docker.nfo 읽어서 docker 서비스 리스트 및 compose, caddy 설정 추출 및 실행
 # - docker.env 읽어 환경변수 불러오고, 없으면 입력받음
@@ -56,7 +56,7 @@ while IFS= read -r line; do
 done < "$NFO_FILE"
 
 echo
-printf "===== Docker Services =====\n"
+printf "========== Docker Services ==========\n"
 printf "| %3s | %-15s | %-9s |\n" "No." "Name" "Required"
 printf "|-----|-----------------|-----------|\n"
 opt_seq=1
