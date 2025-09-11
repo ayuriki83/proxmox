@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 2:21
+# 2:30
 # 자동화 스크립트 (INI 스타일 NFO 대응)
 # - NFO 사용자정의 마커(__DOCKER__, __COMMAND__, etc) 직접 파싱
 # - 환경변수 ##KEY## 형식 치환
@@ -122,24 +122,23 @@ run_commands() {
 
   mapfile -t commands < <(
     awk -v svc="$svc" '
-      BEGIN {in_d=0; in_cmd=0; cmd=""}
-      # 서비스 진입점
-      { raw = $0; gsub(/[\r\t ]+$/, "", raw) }
-      raw ~ "^__DOCKER__ name=\""svc"\"" { in_d=1; next }
-      in_d && raw ~ /^__COMMAND_START__$/ { in_cmd=1; cmd=""; next }
-      in_d && raw ~ /^__COMMAND_END__$/   { if(in_cmd){print cmd}; cmd=""; in_cmd=0; next }
-      # 서비스 탈출
-      in_d && raw ~ /^__DOCKER_END__$/ { in_d=0; }
-      in_d && in_cmd { cmd=cmd $0 "\n" }
-      END { if(cmd!="") print cmd }
+      BEGIN {in_docker=0; in_cmds=0; in_cmd=0; cmd=""}
+      # DOCKER 블록 진입
+      $0 ~ "^__DOCKER__ name=\""svc"\"" {in_docker=1; next}
+      in_docker && $0 ~ /^__COMMANDS_START__$/ {in_cmds=1; next}
+      in_docker && $0 ~ /^__COMMANDS_END__$/ {in_cmds=0; next}
+      in_docker && in_cmds && $0 ~ /^__COMMAND_START__$/ {in_cmd=1; cmd=""; next}
+      in_docker && in_cmds && $0 ~ /^__COMMAND_END__$/ {if(in_cmd){print cmd}; cmd=""; in_cmd=0; next}
+      in_docker && in_cmds && in_cmd {cmd=cmd $0 "\n"}
+      # DOCKER 블록 탈출(다음 DOCKER/DOCKER_END/DOCKER_LIST_END)
+      $0 ~ /^__DOCKER_END__$/ {in_docker=0}
+      END{if(cmd!="") print cmd}
     ' "$NFO_FILE"
   )
 
   for cmd in "${commands[@]}"; do
-    # 마무리 줄끝 개행 제거(heredoc 마지막 EOF 뒤 추가 개행 X)
-    cmd_clean=$(printf "%s" "$cmd" | sed ':a;N;$!ba;s/\n\+\$//')
     tmpf=$(mktemp)
-    printf "%s" "$cmd_clean" > "$tmpf"
+    printf "%s" "$cmd" > "$tmpf"
     echo "==== 임시파일 DEBUG ===="
     cat -A "$tmpf"
     echo "==== 임시파일 END ======"
@@ -162,13 +161,17 @@ final_block=$(awk '
 extract_caddy() {
   local svc="$1"
   awk -v svc="$svc" '
-    BEGIN {in_d=0; in_c=0; buf=""}
-    $0 ~ "^__DOCKER__ name=\""svc"\"" {in_d=1; next}
-    $0 ~ "^__DOCKER__" && in_d == 1 {exit}
-    in_d && $0 ~ "^__CADDYS__" {in_c=1; next}
-    in_c && $0 ~ "^__CADDYS__" {in_c=0; exit}
-    in_c && $0 !~ "^__\\w+__" {buf=buf $0 "\n"}
-    END {print buf}
+    BEGIN {in_docker=0; in_caddys=0; in_caddy=0; caddyblock=""}
+    $0 ~ "^__DOCKER__ name=\""svc"\"" {in_docker=1; next}
+    in_docker && $0 ~ /^__CADDYS_START__$/ {in_caddys=1; next}
+    in_docker && in_caddys && $0 ~ /^__CADDY_START__$/ {in_caddy=1; caddyblock=""; next}
+    in_docker && in_caddys && $0 ~ /^__CADDY_END__$/ {if(in_caddy){print caddyblock}; caddyblock=""; in_caddy=0; next}
+    in_docker && in_caddys && in_caddy {caddyblock=caddyblock $0 "\n"}
+    # CADDYS 종료
+    in_docker && $0 ~ /^__CADDYS_END__$/ {in_caddys=0}
+    # DOCKER 블록 탈출
+    $0 ~ /^__DOCKER_END__$/ {in_docker=0}
+    END{if(caddyblock!="") print caddyblock}
   ' "$NFO_FILE"
 }
 
