@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 1:35
+# 1:36
 # 자동화 스크립트 (INI 스타일 NFO 대응)
 # - NFO 사용자정의 마커(__DOCKER__, __COMMAND__, etc) 직접 파싱
 # - 환경변수 ##KEY## 형식 치환
@@ -62,7 +62,7 @@ done < "$NFO_FILE"
 log
 printf "========== Docker Services ==========\n"
 printf "| %3s | %-15s | %-9s |\n" "No." "Name" "ReqYn"
-printf "|-----|----------------|----------|\n"
+printf "|-----|-----------------|-----------|\n"
 opt_idx=1
 OPTIONAL_INDEX=()
 for i in "${!DOCKER_NAMES[@]}"; do
@@ -76,7 +76,7 @@ for i in "${!DOCKER_NAMES[@]}"; do
   fi
   printf "| %3s | %-15s | %-9s |\n" "$no" "$name" "$req"
 done
-printf "|-----|----------------|----------|\n\n"
+printf "|-----|-----------------|-----------|\n\n"
 
 if (( ${#OPTIONAL_INDEX[@]} == 0 )); then
   echo "[WARN] 선택 가능한 서비스가 없습니다."
