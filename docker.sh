@@ -188,7 +188,7 @@ for key in "${!ENV_VALUES[@]}"; do
 done
 
 mkdir -p docker/caddy/conf
-echo "$final_block" > docker/caddy/conf/Caddyfile
+echo "$final_block" > /docker/caddy/conf/Caddyfile
 
 echo "모든 작업 완료. Caddyfile 생성됨."
 log
