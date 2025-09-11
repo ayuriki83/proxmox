@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 1:50
+# 1:55
 # 자동화 스크립트 (INI 스타일 NFO 대응)
 # - NFO 사용자정의 마커(__DOCKER__, __COMMAND__, etc) 직접 파싱
 # - 환경변수 ##KEY## 형식 치환
@@ -133,11 +133,12 @@ run_commands() {
   mapfile -t commands <<< "$(
     awk '
       BEGIN {in_cmd=0; cmd=""}
-      /^__COMMAND_START__$/ {in_cmd=1; cmd=""; next}
-      /^__COMMAND_END__$/   {if (in_cmd) print cmd; cmd=""; in_cmd=0; next}
-      {if(in_cmd) cmd=cmd $0 ORS}
+      { raw = $0; sub(/\r$/, "", raw); }
+      raw ~ /^__COMMAND_START__$/ {in_cmd=1; cmd=""; next}
+      raw ~ /^__COMMAND_END__$/   {if (in_cmd) print cmd; cmd=""; in_cmd=0; next}
+      {if(in_cmd) cmd=cmd raw ORS}
       END {if(cmd!="") print cmd}
-    ' <<< "$cmds_block"
+  ' <<< "$cmds_block"
   )"
 
   for cmd in "${commands[@]}"; do
