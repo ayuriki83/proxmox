@@ -1,44 +1,32 @@
 #!/bin/bash
 
-# 11:08
-# 자동화 스크립트 (docker.sh 재작성)
-# - docker.nfo 읽어서 docker 서비스 리스트와 compose, caddy 설정 추출 및 실행
-# - docker.env 읽어서 환경변수 할당, 없으면 입력받아 저장
+# 11:18
+# 자동화 스크립트 (docker.sh 수정판)
+# - docker.nfo 읽어서 docker 서비스 리스트 및 compose, caddy 설정 추출 및 실행
+# - docker.env 읽어 환경변수 불러오고, 없으면 입력받음
 # - [ ] 변수 치환 자동 처리
-# - 선택 도커 서비스 실행 및 Caddyfile에 서비스별 리버스프록시 설정 반영
-
-log() { echo "[$(date '+%T')] $*"; }
-info() { echo "[$(date '+%T')][INFO] $*"; }
-err() { echo "[$(date '+%T')][ERROR]" "$@" >&2 }
+# - 선택 서비스 compose 실행 및 Caddyfile 생성
+# - NFO내 <DOCKER> 대신 _DOCKER_ 마커로 변경 대응
 
 NFO_FILE="./docker.nfo"
-CONFIG_FILE="./docker.env"
+ENV_FILE="./docker.env"
 
 if [ ! -f "$NFO_FILE" ]; then
   echo "오류: $NFO_FILE 파일이 없습니다."
   exit 1
 fi
 
-# 설정 파일 위치 지정 (스크립트와 같은 디렉토리 등)
-CONFIG_FILE="./proxmox.conf"
-if [ -f "$CONFIG_FILE" ]; then
-    source "$CONFIG_FILE"
-else
-    info "설정 파일 $CONFIG_FILE 이(가) 없습니다. 기본값 사용."
-fi
-
-
-# 1. env 파일 읽기 또는 없을 경우 생성
+# 1. env 파일 읽기 또는 생성
 declare -A ENV_VALUES
 
-if [ -f "$CONFIG_FILE" ]; then
+if [ -f "$ENV_FILE" ]; then
   while IFS='=' read -r key val; do
     key=$(echo "$key" | tr -d ' ')
     val=$(echo "$val" | sed 's/^"//;s/"$//')
     ENV_VALUES[$key]=$val
-  done < "$CONFIG_FILE"
+  done < "$ENV_FILE"
 else
-  touch "$CONFIG_FILE"
+  touch "$ENV_FILE"
 fi
 
 # env 변수 리스트 nfo에서 [] 변수 자동추출 후 로드 또는 사용자 입력
@@ -49,7 +37,7 @@ load_or_prompt_env() {
   if [ -z "${ENV_VALUES[$key]}" ]; then
     read -rp "환경 변수 '$key' 값을 입력하세요: " val
     ENV_VALUES[$key]=$val
-    echo "$key=\"$val\"" >> "$CONFIG_FILE"
+    echo "$key=\"$val\"" >> "$ENV_FILE"
   fi
 }
 
@@ -143,8 +131,7 @@ for svc in "${ALL_SERVICES[@]}"; do
   run_compose_for_service "$svc"
 done
 
-# 4. 선택 도커 서비스의 <caddys> 내 <caddy> 반복 추출 및 Caddyfile 반영
-
+# 4. 선택 서비스의 <caddys> 내 <caddy> 반복 추출 및 Caddyfile 반영
 FINAL_BLOCK=$(awk '
   BEGIN {in_final=0;}
   /<final>/ {in_final=1; next;}
@@ -176,12 +163,11 @@ for svc in "${ALL_SERVICES[@]}"; do
   fi
 done
 
-# 변경: [DOCKER SERVICE] -> <DOCKER> 로 치환 대상 변경
-FINAL_BLOCK=$(echo "$FINAL_BLOCK" | sed "/<DOCKER>/{
-  s|<DOCKER>|$(echo "$DOCKER_CADDY_CONFIGS" | sed 's/[\/&]/\\&/g')|
+# 변경: _DOCKER_ 마커 치환 처리
+FINAL_BLOCK=$(echo "$FINAL_BLOCK" | sed "/_DOCKER_/{
+  s|_DOCKER_|$(echo "$DOCKER_CADDY_CONFIGS" | sed 's/[\/&]/\\&/g')|
 }")
 
-# 나머지 [] 변수 치환
 for key in "${!ENV_VALUES[@]}"; do
   FINAL_BLOCK=$(echo "$FINAL_BLOCK" | sed "s/\[$key\]/${ENV_VALUES[$key]//\//\\/}/g")
 done
@@ -189,7 +175,7 @@ done
 mkdir -p /docker/caddy/conf
 echo "$FINAL_BLOCK" > /docker/caddy/conf/Caddyfile
 
-# 5. caddy reload (에러시 메시지만 출력)
+# caddy reload (실제 환경에 맞게 활성화)
 #docker exec -it caddy caddy reload || echo "경고: Caddy 재시작 실패"
 
 echo "자동화 완료! 모든 서비스 실행 및 Caddyfile 갱신됨."
