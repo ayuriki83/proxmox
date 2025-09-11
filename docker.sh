@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# 10:52
 # 자동화 스크립트 (docker.sh 재작성)
 # - docker.nfo 읽어서 docker 서비스 리스트와 compose, caddy 설정 추출 및 실행
 # - docker.env 읽어서 환경변수 할당, 없으면 입력받아 저장
