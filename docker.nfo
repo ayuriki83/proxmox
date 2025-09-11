@@ -152,7 +152,10 @@ scope = drive
 gds_userid = ##GDS_USERID##
 gds_apikey = ##GDS_APIKEY##
 gds_endpoint = https://api.sjva.me/v1/gds_auth
-EOF && cat > filter.txt << 'EOF'
+EOF
+</command>
+<command>
+cat > filter.txt << 'EOF'
 - Featurettes/**
 EOF
 </command>
