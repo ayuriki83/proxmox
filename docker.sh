@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 1:25
+# 1:30
 # 자동화 스크립트 (INI 스타일 NFO 대응)
 # - NFO 사용자정의 마커(__DOCKER__, __COMMAND__, etc) 직접 파싱
 # - 환경변수 ##KEY## 형식 치환
@@ -19,7 +19,7 @@ log() {
   fi
 }
 log_printf() {
-  printf "[%s] %s\n" "$(date '+%F %T')" "$@"
+  printf "[%s] $1\n" "$(date '+%F %T')" "${@:2}"
 }
 
 NFO_FILE="./docker.nfo"
@@ -69,7 +69,7 @@ while IFS= read -r line; do
 done < "$NFO_FILE"
 
 log_printf "========== Docker Services =========="
-log_printf "| %3s | %-15s | %-9s |" "$no" "$name" "$req"
+log_printf "| %3s | %-15s | %-9s |" "No." "Name" "ReqYn"
 log_printf "|-----|-----------------|-----------|"
 opt_idx=1
 OPTIONAL_INDEX=()
