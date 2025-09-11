@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 12:23
+# 12:27
 # 자동화 스크립트 (최신 수정판)
 # - docker.nfo에서 docker 서비스, commands, caddy 설정 추출
 # - docker.env에서 환경변수 읽기 및 부족시 입력
@@ -82,15 +82,12 @@ echo
 
 # 옵션 서비스 선택 안내
 if (( ${#OPTIONAL_INDEX_MAP[@]} > 0 )); then
-  echo "선택 가능한 서비스 목록:"
   for item in "${OPTIONAL_INDEX_MAP[@]}"; do
     idx=${item%%:*}
     rest=${item#*:}
     num=${rest%%:*}
     svc=${rest#*:}
-    echo "  $num) $svc"
   done
-  echo
 else
   echo "선택 가능한 서비스가 없습니다."
 fi
@@ -150,28 +147,20 @@ run_compose() {
   fi
 
   # 여러 command별 분리
-  mapfile -t commands < <(echo "$commands_block" | awk '
-    BEGIN {RS="</command>"}
-    {
-      if (match($0,/\<command\>/)) {
-        cmd=substr($0,RSTART+9)
-        print cmd
-      }
+  mapfile -t commands < <(awk '
+    /<command>/,/<\/command>/ {
+      if ($0 ~ /<command>/) {flag=1; next}
+      if ($0 ~ /<\/command>/) {flag=0; print c; c=""; next}
+      if (flag) c = (c ? c "\n" : "") $0
     }
-  ')
-
+  ' "$NFO_LITERAL")
+  
   for cmd in "${commands[@]}"; do
-    # 환경변수 치환
     for key in "${!ENV_VALUES[@]}"; do
-      cmd=${cmd//"##$key##"/${ENV_VALUES[$key]}}
+      cmd="${cmd//"##$key##"/${ENV_VALUES[$key]}}"
     done
-
-    # 불필요한 공백 제거
-    cmd=$(echo "$cmd" | sed 's/^\s*//;s/\s*$//')
-
-    # 실행 (전부 임시 파일로)
     tmpfile=$(mktemp)
-    echo "$cmd" > "$tmpfile"
+    printf "%s\n" "$cmd" > "$tmpfile"
     bash "$tmpfile"
     rm -f "$tmpfile"
   done
