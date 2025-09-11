@@ -71,8 +71,8 @@ for i in "${!DOCKER_NAMES[@]}"; do
     opt_seq=$((opt_seq + 1))
   fi
   printf "| %3s | %-15s | %-9s |\n" "$no" "$name" "$req"
-  printf "|-----|-----------------|-----------|\n"
 done
+printf "|-----|-----------------|-----------|\n"
 printf "\n"
 
 # 옵션 서비스 선택 리스트와 입력 안내
