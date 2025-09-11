@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 2:40
+# 2:45
 # 자동화 스크립트 (INI 스타일 NFO 대응)
 # - NFO 사용자정의 마커(__DOCKER__, __COMMAND__, etc) 직접 파싱
 # - 환경변수 ##KEY## 형식 치환
@@ -121,7 +121,7 @@ run_commands() {
   echo "=== 실행: $svc ==="
 
   mapfile -t commands < <(
-    awk '
+    awk -v svc="$svc" '
       index($0, "__DOCKER__ name=\""svc"\"") > 0 {in_docker=1; next}
       in_docker && $0 ~ /^__COMMANDS_START__$/ {in_cmds=1; next}
       in_docker && $0 ~ /^__COMMANDS_END__$/ {in_cmds=0; next}
@@ -136,10 +136,13 @@ run_commands() {
   for cmd in "${commands[@]}"; do
     tmpf=$(mktemp)
     printf "%s" "$cmd" > "$tmpf"
-    echo "==== 임시파일 DEBUG ===="
+    echo "==== 임시파일 DEBUG: 실행할 명령어 내용 ===="
     cat -A "$tmpf"
-    echo "==== 임시파일 END ======"
+    echo "==== 임시파일 END ===="
+    echo "==== 명령어 실행 시작 ===="
+    # 실행 명령어를 쉘에 전달해 바로 실행
     bash "$tmpf"
+    echo "==== 명령어 실행 종료 ===="
     rm -f "$tmpf"
   done
 }
@@ -162,7 +165,7 @@ extract_caddy() {
     $0 ~ "^__DOCKER__ name=\""svc"\"" {in_docker=1; next}
     in_docker && $0 ~ /^__CADDYS_START__$/ {in_caddys=1; next}
     in_docker && in_caddys && $0 ~ /^__CADDY_START__$/ {in_caddy=1; caddyblock=""; next}
-    in_docker && in_caddys && $0 ~ /^__CADDY_END__$/ {if(in_caddy){print caddyblock}; caddyblock=""; in_caddy=0; next}
+    in_docker && in_caddys && in_caddy && $0 ~ /^__CADDY_END__$/ {if(in_caddy){print caddyblock}; caddyblock=""; in_caddy=0; next}
     in_docker && in_caddys && in_caddy {caddyblock=caddyblock $0 "\n"}
     # CADDYS 종료
     in_docker && $0 ~ /^__CADDYS_END__$/ {in_caddys=0}
@@ -179,7 +182,7 @@ for svc in "${ALL_SERVICES[@]}"; do
   DOCKER_CADDY+=$'\n'"$caddy_block"$'\n'
 done
 
-caddy_escaped=$(printf '%s' "$DOCKER_CADDY" | sed 's/[\/&]/\\&/g')
+caddy_escaped=$(printf '%s' "$DOCKER_CADDY" | sed 's/[\/&;]/\\&/g')
 final_block=${final_block//_DOCKER_/$caddy_escaped}
 for key in "${!ENV_VALUES[@]}"; do
   final_block=${final_block//"##$key##"/"${ENV_VALUES[$key]}"}
