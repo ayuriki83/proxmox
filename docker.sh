@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 11:18
+# 11:25
 # 자동화 스크립트 (docker.sh 수정판)
 # - docker.nfo 읽어서 docker 서비스 리스트 및 compose, caddy 설정 추출 및 실행
 # - docker.env 읽어 환경변수 불러오고, 없으면 입력받음
@@ -119,10 +119,11 @@ run_compose_for_service() {
     return 1
   fi
 
-  # [키] 치환
+  # ##키## 치환
   for key in "${!ENV_VALUES[@]}"; do
-    compose_block=$(echo "$compose_block" | sed "s/\[$key\]/${ENV_VALUES[$key]//\//\\/}/g")
+    compose_block=$(echo "$compose_block" | sed "s/##${key}##/${ENV_VALUES[$key]//\//\\/}/g")
   done
+
 
   bash -c "$compose_block"
 }
@@ -169,7 +170,7 @@ FINAL_BLOCK=$(echo "$FINAL_BLOCK" | sed "/_DOCKER_/{
 }")
 
 for key in "${!ENV_VALUES[@]}"; do
-  FINAL_BLOCK=$(echo "$FINAL_BLOCK" | sed "s/\[$key\]/${ENV_VALUES[$key]//\//\\/}/g")
+  FINAL_BLOCK=$(echo "$FINAL_BLOCK" | sed "s/##${key}##/${ENV_VALUES[$key]//\//\\/}/g")
 done
 
 mkdir -p /docker/caddy/conf
