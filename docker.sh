@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 11:06
+# 11:08
 # 자동화 스크립트 (docker.sh 재작성)
 # - docker.nfo 읽어서 docker 서비스 리스트와 compose, caddy 설정 추출 및 실행
 # - docker.env 읽어서 환경변수 할당, 없으면 입력받아 저장
@@ -31,14 +31,14 @@ fi
 # 1. env 파일 읽기 또는 없을 경우 생성
 declare -A ENV_VALUES
 
-if [ -f "$ENV_FILE" ]; then
+if [ -f "$CONFIG_FILE" ]; then
   while IFS='=' read -r key val; do
     key=$(echo "$key" | tr -d ' ')
     val=$(echo "$val" | sed 's/^"//;s/"$//')
     ENV_VALUES[$key]=$val
-  done < "$ENV_FILE"
+  done < "$CONFIG_FILE"
 else
-  touch "$ENV_FILE"
+  touch "$CONFIG_FILE"
 fi
 
 # env 변수 리스트 nfo에서 [] 변수 자동추출 후 로드 또는 사용자 입력
@@ -49,7 +49,7 @@ load_or_prompt_env() {
   if [ -z "${ENV_VALUES[$key]}" ]; then
     read -rp "환경 변수 '$key' 값을 입력하세요: " val
     ENV_VALUES[$key]=$val
-    echo "$key=\"$val\"" >> "$ENV_FILE"
+    echo "$key=\"$val\"" >> "$CONFIG_FILE"
   fi
 }
 
