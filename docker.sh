@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 3:07
+# 3:10
 # 자동화 스크립트 (커스텀 INI 스타일 NFO 대응: CMD/EOF 구분)
 # - NFO 사용자정의 마커(__DOCKER__, __CMD__, __EOFS__, __EOF__, etc) 직접 파싱
 # - 환경변수 ##KEY## 형식 치환
@@ -125,7 +125,7 @@ run_commands() {
       index($0, "__DOCKER__ name=\""svc"\"") > 0 {in_docker=1; next}
       in_docker && $0 ~ /^__CMD_START__$/ {in_cmd=1; cmd=""; next}
       in_docker && $0 ~ /^__CMD_END__$/   {if(in_cmd){print cmd}; cmd=""; in_cmd=0; next}
-      in_docker && in_cmd && $0 !~ /^__/  {cmd=cmd$0"\n"}
+      in_docker && in_cmd && $0 !~ /^__/  {cmd=cmd $0 "\n"; next}
       $0 ~ /^__DOCKER_END__$/ {in_docker=0}
     ' "$NFO_FILE"
   )
@@ -138,7 +138,7 @@ run_commands() {
       in_docker && $0 ~ /^__EOFS_END__$/   {in_eofs=0; next}
       in_docker && in_eofs && $0 ~ /^__EOF_START__$/ {in_eof=1; eofcmd=""; next}
       in_docker && in_eofs && $0 ~ /^__EOF_END__$/   {if(in_eof){print eofcmd}; eofcmd=""; in_eof=0; next}
-      in_docker && in_eofs && in_eof      {eofcmd=eofcmd $0 "\n"}
+      in_docker && in_eofs && in_eof      {eofcmd=eofcmd $0 "\n"; next}
       $0 ~ /^__DOCKER_END__$/ {in_docker=0}
     ' "$NFO_FILE"
   )
@@ -146,8 +146,9 @@ run_commands() {
   # 단일명령 실행
   for idx in "${!cmds[@]}"; do
     cmd="${cmds[$idx]}"
-    [ -z "$cmd" ] && continue
-    echo "==== 단일명령(DEBUG $svc #$idx) ====\n$cmd"
+    [[ -z "$cmd" ]] && { echo "CMD[$idx] is empty"; continue; }
+    echo "==== 단일명령(DEBUG $svc #$idx) ===="
+    echo "$cmd"
     (echo "$cmd" | bash 2>&1 | tee "/tmp/docker_command_${svc}_cmd${idx}.log")
     echo "==== 명령 실행 종료: 반환값 ${PIPESTATUS} ===="
   done
