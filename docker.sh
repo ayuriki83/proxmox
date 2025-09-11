@@ -1,39 +1,49 @@
 #!/bin/bash
 
-# 자동화 스크립트: 외부 nfo 파일에서 Docker, Caddy 설정 읽기 및 환경변수 적용해서 도커 컴포즈 실행 + Caddyfile 생성
+# 자동화 스크립트 (docker.sh 재작성)
+# - docker.nfo 읽어서 docker 서비스 리스트와 compose, caddy 설정 추출 및 실행
+# - docker.env 읽어서 환경변수 할당, 없으면 입력받아 저장
+# - [ ] 변수 치환 자동 처리
+# - 선택 도커 서비스 실행 및 Caddyfile에 서비스별 리버스프록시 설정 반영
 
 NFO_FILE="./docker.nfo"
 ENV_FILE="./docker.env"
 
 if [ ! -f "$NFO_FILE" ]; then
-  echo "오류: $NFO_FILE 파일을 찾을 수 없습니다."
+  echo "오류: $NFO_FILE 파일이 없습니다."
   exit 1
 fi
 
-# 1. nfo파일에서 [] 변수명 자동 수집 및 환경변수 로드/입력
-mapfile -t ENV_KEYS < <(grep -oP '\[\K[^\]]+' "$NFO_FILE" | sort -u)
+# 1. env 파일 읽기 또는 없을 경우 생성
 declare -A ENV_VALUES
+
+if [ -f "$ENV_FILE" ]; then
+  while IFS='=' read -r key val; do
+    key=$(echo "$key" | tr -d ' ')
+    val=$(echo "$val" | sed 's/^"//;s/"$//')
+    ENV_VALUES[$key]=$val
+  done < "$ENV_FILE"
+else
+  touch "$ENV_FILE"
+fi
+
+# env 변수 리스트 nfo에서 [] 변수 자동추출 후 로드 또는 사용자 입력
+mapfile -t ENV_KEYS < <(grep -oP '\[\K[^\]]+' "$NFO_FILE" | sort -u)
 
 load_or_prompt_env() {
   local key="$1"
-  local value=""
-  if [ -f "$ENV_FILE" ]; then
-    value=$(grep -E "^${key}=" "$ENV_FILE" | cut -d '=' -f2-)
+  if [ -z "${ENV_VALUES[$key]}" ]; then
+    read -rp "환경 변수 '$key' 값을 입력하세요: " val
+    ENV_VALUES[$key]=$val
+    echo "$key=\"$val\"" >> "$ENV_FILE"
   fi
-  if [ -z "$value" ]; then
-    read -rp "환경 변수 '$key' 값을 입력하세요: " value
-    grep -v "^${key}=" "$ENV_FILE" 2>/dev/null > "${ENV_FILE}.tmp" || true
-    echo "${key}=${value}" >> "${ENV_FILE}.tmp"
-    mv "${ENV_FILE}.tmp" "$ENV_FILE"
-  fi
-  echo "$value"
 }
 
 for key in "${ENV_KEYS[@]}"; do
-  ENV_VALUES[$key]=$(load_or_prompt_env "$key")
+  load_or_prompt_env "$key"
 done
 
-# 2. nfo에서 <docker> 태그 name, required 리스트 추출
+# 2. nfo에서 docker name, required 추출
 DOCKER_NAMES=()
 DOCKER_REQUIRED=()
 
@@ -87,13 +97,12 @@ ALL_SERVICES=("${REQUIRED_SERVICES[@]}" "${OPTIONAL_SERVICES[@]}")
 echo
 echo "실행 대상 서비스: ${ALL_SERVICES[*]}"
 
-# compose 실행 함수
+# 3. compose 실행 함수
 run_compose_for_service() {
   local svc="$1"
   echo
   echo ">>> Setting up service: $svc"
 
-  # <docker name="$svc" ...> ~ </compose> 영역 추출
   local compose_block
   compose_block=$(awk -v svc="$svc" '
     BEGIN {in_docker=0; in_compose=0;}
@@ -108,12 +117,11 @@ run_compose_for_service() {
     return 1
   fi
 
-  # [] 변수 치환
+  # [키] 치환
   for key in "${!ENV_VALUES[@]}"; do
     compose_block=$(echo "$compose_block" | sed "s/\[$key\]/${ENV_VALUES[$key]//\//\\/}/g")
   done
 
-  # 쉘 명령 실행
   bash -c "$compose_block"
 }
 
@@ -121,9 +129,8 @@ for svc in "${ALL_SERVICES[@]}"; do
   run_compose_for_service "$svc"
 done
 
-# 3. 선택한 서비스의 <caddys> 내 <caddy> 태그 반복추출 및 Caddyfile에 반영
+# 4. 선택 도커 서비스의 <caddys> 내 <caddy> 반복 추출 및 Caddyfile 반영
 
-# 3-1. 전체 final 태그에서 내용 추출
 FINAL_BLOCK=$(awk '
   BEGIN {in_final=0;}
   /<final>/ {in_final=1; next;}
@@ -131,60 +138,42 @@ FINAL_BLOCK=$(awk '
   in_final {print;}
 ' "$NFO_FILE")
 
-# 3-2. 선택 서비스별 <caddys> ... </caddys> 반복 내 <caddy> ... </caddy> 추출 함수
 extract_caddy_blocks() {
   local svc="$1"
   awk -v svc="$svc" '
     BEGIN {in_docker=0; in_caddys=0; in_caddy=0; block=""}
-    # docker명에 맞는 docker 시작 확인
     /<docker name="'"$svc"'"/ {in_docker=1;}
     in_docker && /<caddys>/ {in_caddys=1; next;}
     in_caddys && /<\/caddys>/ {in_caddys=0;}
-    in_caddys && /<caddy>/ {
-      in_caddy=1;
-      block=""
-      next
-    }
-    in_caddy && /<\/caddy>/ {
-      in_caddy=0;
-      print block
-      next
-    }
-    in_caddy {
-      block = block $0 "\n"
-    }
-    in_docker && /<\/docker>/ && !in_caddys {in_docker=0}
+    in_caddys && /<caddy>/ {in_caddy=1; block=""; next;}
+    in_caddy && /<\/caddy>/ {in_caddy=0; print block; next;}
+    in_caddy {block=block $0 "\n";}
+    in_docker && /<\/docker>/ && !in_caddys {in_docker=0;}
   ' "$NFO_FILE"
 }
 
-# 3-3. Caddyfile 내 [DOCKER SERVICE] 부분에 삽입할 문자열 생성
 DOCKER_CADDY_CONFIGS=""
 
 for svc in "${ALL_SERVICES[@]}"; do
   caddy_blocks=$(extract_caddy_blocks "$svc")
-
   if [ -n "$caddy_blocks" ]; then
-    # [domain] 치환
     caddy_blocks=$(echo "$caddy_blocks" | sed "s/\[domain\]/${ENV_VALUES[domain]}/g")
     DOCKER_CADDY_CONFIGS+=$'\n'"$caddy_blocks"$'\n'
   fi
 done
 
-# 3-4. final 블록 내 [DOCKER SERVICE] 치환
 FINAL_BLOCK=$(echo "$FINAL_BLOCK" | sed "/\[DOCKER SERVICE\]/{
   s/\[DOCKER SERVICE\]/$(echo "$DOCKER_CADDY_CONFIGS" | sed 's/[\/&]/\\&/g')
 }")
 
-# 3-5. 나머지 [] 변수 치환
 for key in "${!ENV_VALUES[@]}"; do
   FINAL_BLOCK=$(echo "$FINAL_BLOCK" | sed "s/\[$key\]/${ENV_VALUES[$key]//\//\\/}/g")
 done
 
-# 3-6. Caddyfile 쓰기
 mkdir -p /docker/caddy/conf
 echo "$FINAL_BLOCK" > /docker/caddy/conf/Caddyfile
 
-# 4. caddy reload 시도 (실패해도 무시)
+# 5. caddy reload (에러시 메시지만 출력)
 #docker exec -it caddy caddy reload || echo "경고: Caddy 재시작 실패"
 
-echo ">>> 자동화 완료! Caddyfile이 생성되었고, 서비스가 실행 중입니다."
+echo "자동화 완료! 모든 서비스 실행 및 Caddyfile 갱신됨."
