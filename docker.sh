@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 3:02
+# 3:07
 # 자동화 스크립트 (커스텀 INI 스타일 NFO 대응: CMD/EOF 구분)
 # - NFO 사용자정의 마커(__DOCKER__, __CMD__, __EOFS__, __EOF__, etc) 직접 파싱
 # - 환경변수 ##KEY## 형식 치환
@@ -119,13 +119,13 @@ run_commands() {
   echo
   echo "=== 실행: $svc ==="
 
-  # 단일라인 명령 파싱 (CMD)
+  # 단일명령어 블록 추출
   mapfile -t cmds < <(
     awk -v svc="$svc" '
       index($0, "__DOCKER__ name=\""svc"\"") > 0 {in_docker=1; next}
       in_docker && $0 ~ /^__CMD_START__$/ {in_cmd=1; cmd=""; next}
       in_docker && $0 ~ /^__CMD_END__$/   {if(in_cmd){print cmd}; cmd=""; in_cmd=0; next}
-      in_docker && in_cmd && $0 !~ /^__/  {cmd=$0; print cmd}
+      in_docker && in_cmd && $0 !~ /^__/  {cmd=cmd$0"\n"}
       $0 ~ /^__DOCKER_END__$/ {in_docker=0}
     ' "$NFO_FILE"
   )
@@ -144,29 +144,25 @@ run_commands() {
   )
 
   # 단일명령 실행
-  for cmd in "${cmds[@]}"; do
-    if [[ -n "$cmd" ]]; then
-      echo "==== 단일명령 DEBUG: 실행할 명령어 ===="
-      echo "$cmd"
-      echo "==== 명령어 실행 시작 ===="
-      bash -c "$cmd" 2>&1 | tee /tmp/docker_command_last.log
-      echo "==== 명령어 실행 종료 ===="
-    fi
+  for idx in "${!cmds[@]}"; do
+    cmd="${cmds[$idx]}"
+    [ -z "$cmd" ] && continue
+    echo "==== 단일명령(DEBUG $svc #$idx) ====\n$cmd"
+    (echo "$cmd" | bash 2>&1 | tee "/tmp/docker_command_${svc}_cmd${idx}.log")
+    echo "==== 명령 실행 종료: 반환값 ${PIPESTATUS} ===="
   done
 
-  # 다중라인 명령 실행
-  for eofcmd in "${eofs[@]}"; do
-    if [[ -n "$eofcmd" ]]; then
-      tmpf=$(mktemp)
-      printf "%s" "$eofcmd" > "$tmpf"
-      echo "==== 다중라인명령 DEBUG: 실행 내용 ===="
-      cat -A "$tmpf"
-      echo "==== 임시파일 END ===="
-      echo "==== 명령어 실행 시작 ===="
-      bash "$tmpf" 2>&1 | tee /tmp/docker_command_last.log
-      echo "==== 명령어 실행 종료 ===="
-      rm -f "$tmpf"
-    fi
+  # 다중라인명령 실행
+  for idx in "${!eofs[@]}"; do
+    eofcmd="${eofs[$idx]}"
+    [ -z "$eofcmd" ] && continue
+    tmpf=$(mktemp)
+    printf "%s" "$eofcmd" > "$tmpf"
+    echo "==== 다중라인명령(DEBUG $svc #$idx) ===="
+    cat -A "$tmpf"
+    bash "$tmpf" 2>&1 | tee "/tmp/docker_command_${svc}_eof${idx}.log"
+    echo "==== 명령 실행 종료: 반환값 ${PIPESTATUS} ===="
+    rm -f "$tmpf"
   done
 }
 
