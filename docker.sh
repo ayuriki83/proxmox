@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 1:10
+# 1:19
 # 자동화 스크립트 (INI 스타일 NFO 대응)
 # - NFO 사용자정의 마커(__DOCKER__, __COMMAND__, etc) 직접 파싱
 # - 환경변수 ##KEY## 형식 치환
@@ -11,10 +11,16 @@
 
 set -e
 
-log() { echo "[$(date '+%T')] $*"; }
-info() { echo "[$(date '+%T')][INFO] $*"; }
-warn() { echo "[$(date '+%T')][WARN] $*"; }
-err() { echo "[$(date '+%T')][ERROR]" "$@" >&2; }
+log() {
+  if [ $# -eq 0 ]; then
+    echo
+  else
+    echo "[$(date '+%F %T')] $*"
+  fi
+}
+log_printf() {
+  printf "[%s] %s\n" "$(date '+%F %T')" "$@"
+}
 
 NFO_FILE="./docker.nfo"
 ENV_FILE="./docker.env"
@@ -62,10 +68,9 @@ while IFS= read -r line; do
   fi
 done < "$NFO_FILE"
 
-log
-printf "========== Docker Services ==========\n"
-printf "| %3s | %-15s | %-9s |\n" "No." "Name" "ReqYn"
-printf "|-----|----------------|----------|\n"
+log_printf "========== Docker Services ==========\n"
+log_printf "| %3s | %-15s | %-9s |\n" "No." "Name" "ReqYn"
+log_printf "|-----|-----------------|-----------|\n"
 opt_idx=1
 OPTIONAL_INDEX=()
 for i in "${!DOCKER_NAMES[@]}"; do
@@ -77,12 +82,12 @@ for i in "${!DOCKER_NAMES[@]}"; do
     OPTIONAL_INDEX+=("${i}:${no}:${name}")
     ((opt_idx++))
   fi
-  printf "| %3s | %-15s | %-9s |\n" "$no" "$name" "$req"
+  log_printf "| %3s | %-15s | %-9s |\n" "$no" "$name" "$req"
 done
-printf "|-----|-----------------|-----------|\n\n"
+log_printf "|-----|-----------------|-----------|\n\n"
 
 if (( ${#OPTIONAL_INDEX[@]} == 0 )); then
-  warn "선택 가능한 서비스가 없습니다."
+  log "[WARN] 선택 가능한 서비스가 없습니다."
 fi
 
 read -rp "실행할 서비스 번호를 ','로 구분하여 입력하세요 (예: 1,3,5): " input_line
@@ -115,12 +120,11 @@ for i in "${!DOCKER_NAMES[@]}"; do
 done
 ALL_SERVICES=("${REQS[@]}" "${OPTS[@]}")
 
-echo
-echo "실행 대상: ${ALL_SERVICES[*]}"
+log
+log "실행 대상: ${ALL_SERVICES[*]}"
 
 run_commands() {
   local svc="$1"
-  log
   log "=== 실행: $svc ==="
 
   # awk 내 변수 안전 인용을 위해 변수 전달 방식 보완
