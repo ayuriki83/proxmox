@@ -1,0 +1,487 @@
+<dockers>
+<docker name="caddy" required="true">
+<compose>
+mkdir -p /docker/caddy/{conf,log} && cat >/docker/caddy/docker-compose.yml << 'EOF'
+services:
+  caddy:
+    container_name: caddy
+    image: ghcr.io/caddybuilds/caddy-cloudflare:latest
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./conf:/etc/caddy
+      - ./log:/var/log
+      - data:/data
+      - config:/config
+    environment:
+      - CLOUDFLARE_API_TOKEN=[API_TOKEN]
+volumes:
+  data:
+  config:
+networks:
+  default:
+    external: true
+    name: [DOCKER_BRIDGE_NET]
+EOF
+</compose>
+</docker>
+
+<docker name="portainer" required="true" >
+<compose>
+mkdir -p /docker/portainer && cat > /docker/portainer/docker-compose.yml << 'EOF'
+version: "3.8"
+services:
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    environment:
+      - TZ=Asia/Seoul
+      - PUID=0
+      - PGID=0
+volumes:
+  data:
+networks:
+  default:
+    external: true
+    name [DOCKER_BRIDGE_NET]
+EOF
+</compose>
+<caddys>
+<caddy>
+    # Portainer
+    @portainer host portainer.[domain]
+    handle @portainer {
+        reverse_proxy portainer:9000 {
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+</caddy>
+</caddys>
+</docker>
+
+<docker name="rclone" required="true">
+<compose>
+mkdir -p /docker/rclone && cat > /docker/rclone/docker-compose.yml << 'EOF'
+version: '3'
+services:
+  rclone:
+    container_name: rclone
+    image: ghcr.io/wiserain/rclone:mod
+    restart: always
+    ports:
+      - 5574:5574
+    devices:
+      - /dev/fuse
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - ./:/config
+      - ./:/log
+      - /rclone/Cache:/cache
+      - /rclone/Data:/data:rshared
+    environment:
+      - PUID=0
+      - PGID=0
+      - TZ=Asia/Seoul
+      - RCLONE_LOG_FILE=./rclone_mount.log
+      - RCLONE_LOG_LEVEL=ERROR
+      - "RCLONE_REMOTE_PATH=google:"
+      - RCLONE_REFRESH_ON_MOUNT
+      - RCLONE_MOUNT_USER_OPTS=
+        --allow-non-empty
+        --drive-skip-gdocs
+        --user-agent=oci-seoul
+        --poll-interval=0
+        --buffer-size=16M
+        --vfs-read-chunk-size=16M
+        --vfs-read-chunk-size-limit 2048M
+        --vfs-read-ahead 32M
+        --vfs-cache-mode=full
+        --vfs-cache-max-size=256G
+        --vfs-cache-max-age=480h
+        --vfs-cache-poll-interval=5m
+        --dir-cache-time=1000h
+        --read-only
+        --no-checksum
+        --no-modtime
+        --drive-gds-mode=all
+        --filter-from=/config/filter.txt
+networks:
+  default:
+    external: true
+    name: [DOCKER_BRIDGE_NET]
+EOF &&  cat > /docker/rclone/rclone.conf << 'EOF'
+[google]
+type = drive
+scope = drive
+gds_userid = {GDS_USERID}
+gds_apikey = {GDS_APIKEY}
+gds_endpoint = https://api.sjva.me/v1/gds_auth
+EOF && cat > filter.txt << 'EOF'
+- Featurettes/**
+EOF
+</docker>
+
+<docker name="ff_plex" required="true">
+<compose>
+mkdir -p /docker/ff_plex/{ff,plex} && mkdir -p /docker/ff_plex/plex/{config,transcode} && cat > /docker/ff_plex/docker-compose.yml << 'EOF'
+version: '3'
+services: 
+  ff:
+    container_name: ff
+    image: flaskfarm/flaskfarm:4.0
+    ports:
+      - "9999:9999" # service port
+      - "9998:9998" # webhook port (plex)
+      - "9997:7575" # webhook port (jellyfin)
+    volumes:
+      - /docker/ff_plex/ff:/data
+      - /:/host         # 내부 우분투까지 접근. 로그삭제같은 특수기능떄문에 허용
+      - /mnt/rclone/Data:/share/gds:rshared
+      # plex mate plex-docker
+      - libpms:/usr/lib/plexmediaserver
+      - /docker/ff_plex/plex:/plex
+    privileged: true
+
+  plex:
+    container_name: plex
+    image: ghcr.io/by275/plex:lsio-1.42.1.10060-4e8b05daf
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - 32400:32400
+    volumes:
+      - /docker/ff_plex/plex/config:/config
+      - /docker/ff_plex/plex/transcode:/transcode
+      - type: bind
+        source: /mnt/rclone/Data
+        target: /share/gds
+        bind:
+          propagation: rslave
+      - libpms:/libpms
+    devices:
+      - "/dev/dri:/dev/dri"
+    environment:
+      PUID: 1001
+      PGID: 1001
+      TZ: ${TZ:-Asia/Seoul}
+      PLEX_CLAIM: claim-dxqdEtTdsP_88m1ZBXE1
+      VERSION: docker
+      WAIT_ANCHOR_DIRS: /share/gds/GDRIVE/VIDEO/방송중
+      WATCHER_DIRS: /share/gds/GDRIVE/VIDEO/방송중
+      WATCHER_INTERVAL: 3600s
+      CLEANUP_PTC_CRON: 44 44 */4 * * *
+      CLEANUP_PTC_EXCEED_GB: 30
+      CLEANUP_PTC_FREEUP_GB: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: "1024k"
+        max-file: "5"
+volumes:
+  libpms:
+
+networks:
+  default:
+    external: true
+    name: [DOCKER_BRIDGE_NET]
+EOF
+</compose>
+<caddys>
+<caddy>
+    # Plex Media Server + Hook
+    @plex host plex.[domain]
+    handle @plex {
+        reverse_proxy plex:32400 {
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+    @plexhook host plexhook.[domain]
+    handle @plexhook {
+        reverse_proxy ff:9998 {
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+</caddy>
+<caddy>
+    # FF
+    @ff host ff.[domain]
+    handle @ff {
+        reverse_proxy ff:9999 {
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+</caddy>
+</caddys>
+</docker>
+
+<docker name="jellyfin" required="false">
+<compose>
+mkdir -p /docker/jellyfin/{cache,config} && cat > /docker/jellyfin/docker-compose.yml << 'EOF'
+version: "3.7"
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    devices:
+      - /dev/dri:/dev/dri         # Intel/NVIDIA GPU용 초기 예시
+    environment:
+      - PUID: 0
+      - PGID: 0
+      - TZ=Asia/Seoul             # 시간대
+    ports:
+      - 8096:8096                 # Jellyfin 기본 포트
+    volumes:
+      - ./config:/config
+      - ./cache:/cache
+      - /mnt/rclone/Data/GDRIVE/VIDEO/AV:/media      # 본인의 미디어 경로로 수정
+    #restart: unless-stopped
+networks:
+  default:
+    external: true
+    name: [DOCKER_BRIDGE_NET]
+EOF
+</compose>
+<caddys>
+<caddy>
+    # Jellyfin
+    @jellyfin host jellyfin.[domain]
+    handle @jellyfin {
+        reverse_proxy jellyfin:8096 {
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+</caddy>
+</caddys>
+</docker>
+
+<docker name="kavita" required="false">
+<compose>
+mkdir -p /docker/kavita && cat > /docker/kavita/docker-compose.yml << 'EOF'
+version: '3.3'
+services:
+  kavita:
+    container_name: kavita
+    image: ghcr.io/by275/kavita:v0.8.3.2-0.4.2
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "1024k"
+        max-file: "5"
+    volumes:
+      - ./:/kavita/config
+      - /mnt/rclone/Data:/mnt/gds2:rshared
+    ports:
+      - "5000:5000"
+    environment:
+      - PUID: 0
+      - PGID: 0
+      - TZ: Asia/Seoul
+      - WAIT_ANCHOR_DIRS: /mnt/gds2/GDRIVE/READING
+networks:
+  default:
+    external: true
+    name: [DOCKER_BRIDGE_NET]
+EOF
+</compose>
+<caddys>
+<caddy>
+    # Kavita
+    @kavita host kavita.[domain]
+    handle @kavita {
+        reverse_proxy kavita:5000 {
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+</caddy>
+</caddys>
+</docker>
+
+<docker name="beszel" required="false">
+<compose>
+mkdir -p /docker/beszel && cat > /docker/beszel/docker-compose.yml << 'EOF'
+version: "3.8"
+services:
+  beszel:
+    image: henrygd/beszel:latest
+    container_name: beszel
+    restart: always
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./:/beszel_data
+    environment:
+      - TZ=Asia/Seoul
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+volumes:
+  beszel_data:
+networks:
+  default:
+    external: true
+    name: [DOCKER_BRIDGE_NET]
+EOF
+</compose>
+<caddys>
+<caddy>
+    # Beszel
+    @beszel host beszel.[domain]
+    handle @beszel {
+        reverse_proxy beszel:8090 {
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+</caddy>
+</caddys>
+</docker>
+
+<docker name="uptime-kuma" required="false">
+<compose>
+mkdir -p /docker/uptime-kuma && cat > /docker/uptime-kuma/docker-compose.yml << 'EOF'
+version: '3.3'
+services:
+  uptime-kuma:
+    container_name: uptime-kuma
+    image: 'louislam/uptime-kuma:latest'
+    restart: always
+    ports:
+        - '3001:3001'
+    volumes:
+        - './:/app/data'
+volumes:
+  data:
+    driver: local
+networks:
+  default:
+    external: true
+    name: [DOCKER_BRIDGE_NET]
+EOF
+</compose>
+<caddys>
+<caddy>
+    # Uptime Kuma
+    @uptime host uptime.[domain]
+    handle @uptime {
+        reverse_proxy uptime-kuma:3001 {
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+</caddy>
+</caddys>
+</docker>
+
+<docker name="vaultwarden" required="false">
+<compose>
+mkdir -p /docker/vaultwarden && cat > /docker/vaultwarden/docker-compose.yml << 'EOF'
+version: '3.1'
+services:
+  vaultwarden:
+    container_name: vaultwarden
+    image: vaultwarden/server
+    restart: always
+    ports:
+      - 8000:80
+    volumes:
+      - ./:/data
+    environment:
+      - TZ=Asia/Seoul
+networks:
+  default:
+    external: true
+    name: [DOCKER_BRIDGE_NET]
+EOF
+</compose>
+</docker>
+<caddys>
+<caddy>
+    # Vaultwarden
+    @vaultwarden host pw.[domain]
+    handle @vaultwarden {
+        reverse_proxy vaultwarden:80 {
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+</caddy>
+</caddys>
+<dockers>
+
+<final>
+cat > /docker/caddy/conf/Caddyfile << 'EOF'
+{
+    email [email]
+}
+
+# 와일드카드 인증서로 모든 서브도메인 처리
+*.[domain] {
+    tls {
+        dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+    }
+
+    # Proxmox
+    @proxmox host pve.[domain]
+    handle @proxmox {
+        reverse_proxy https://[PROXMOX_IP]:8006 {
+            transport http {
+                tls_insecure_skip_verify
+            }
+        }
+    }
+
+    [DOCKER SERVICE]
+
+    # 기본 응답 (매칭되지 않는 서브도메인)
+    handle {
+        respond "🏠  Homelab Server - Service not found" 404
+    }
+
+    # 로그 설정
+    log {
+        output file /var/log/access.log {
+            roll_size 50mb            # 로그 파일 최대 크기 (선택 사항)
+            roll_keep 7               # 보관할 로그 파일 개수
+            roll_keep_for 720h        # 보관 기간 (예: 720시간 = 30일)
+        }
+        format json       # 또는 format console
+        level INFO
+    }
+}
+
+# 메인 도메인 (와일드카드에 포함되지 않음)
+[domain] {
+    tls {
+        dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+    }
+    respond "🏠  Homelab Main Page - All services running!"
+}
+EOF
+</final>
