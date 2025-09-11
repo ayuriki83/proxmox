@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 3:28
+# 3:32
 # 자동화 스크립트 (커스텀 INI 스타일 NFO 대응: CMD/EOF 구분)
 # - NFO 사용자정의 마커(__DOCKER_START__, __CMD__, __EOFS__, __EOF__, etc) 직접 파싱
 # - 환경변수 ##KEY## 형식 치환
@@ -134,12 +134,12 @@ run_commands() {
   # 다중라인 명령 파싱 (EOFs)
   mapfile -t eofs < <(
     awk -v svc="$svc" '
-      $0 ~ "__DOCKER_START__ name[ \t]*=[ \t]*[\"'\'']?"svc"[\"'\'']?[ ]*req" {in_docker=1; next}
+      $0 ~ "__DOCKER_START__ name="?svc"? req" {in_docker=1; next}
       in_docker && $0 ~ /^__EOFS_START__$/ {in_eofs=1; next}
       in_docker && $0 ~ /^__EOFS_END__$/   {in_eofs=0; next}
       in_docker && in_eofs && $0 ~ /^__EOF_START__$/ {in_eof=1; eofcmd=""; next}
-      in_docker && in_eofs && $0 ~ /^__EOF_END__$/   {if(in_eof){print eofcmd}; eofcmd=""; in_eof=0; next}
-      in_docker && in_eofs && in_eof && $0 !~ /^__EOF_END__$/ {eofcmd=eofcmd $0 "\n"; next}
+      in_docker && in_eofs && $0 ~ /^__EOF_END__$/   {print eofcmd; eofcmd=""; in_eof=0; next}
+      in_docker && in_eofs && in_eof      {eofcmd=eofcmd $0 "\n"; next}
       $0 ~ /^__DOCKER_END__$/ {in_docker=0}
     ' "$NFO_FILE"
   )
@@ -160,7 +160,7 @@ run_commands() {
   # 다중라인명령 실행
   for idx in "${!eofs[@]}"; do
     eofcmd="${eofs[$idx]}"
-    [ -z "$eofcmd" ] && continue
+    [[ -z "$eofcmd" ]] && continue
     tmpf=$(mktemp)
     printf "%s" "$eofcmd" > "$tmpf"
     echo "==== 다중라인명령(DEBUG $svc #$idx) ===="
