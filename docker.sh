@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 1:36
+# 1:40
 # 자동화 스크립트 (INI 스타일 NFO 대응)
 # - NFO 사용자정의 마커(__DOCKER__, __COMMAND__, etc) 직접 파싱
 # - 환경변수 ##KEY## 형식 치환
@@ -117,24 +117,23 @@ echo "실행 대상: ${ALL_SERVICES[*]}"
 
 run_commands() {
   local svc="$1"
+  echo
   echo "=== 실행: $svc ==="
 
-  # awk 내 변수 안전 인용을 위해 변수 전달 방식 보완
+  local cmds_block
   cmds_block=$(awk -v svc="$svc" '
     BEGIN {in_d=0; in_c=0}
     $0 ~ "^__DOCKER__ name=\""svc"\"" {in_d=1; next}
     $0 ~ "^__DOCKER__" && in_d == 1 {exit}
-    in_d && $0 ~ "^__COMMANDS__" {in_c=1; next}
-    in_c && $0 ~ "^__COMMANDS__" {next}
-    in_c && $0 ~ "^__C\\w+__" {in_c=0; exit}
+    in_d && $0 ~ "^__COMMANDS_START__" {in_c=1; next}
+    in_c && $0 ~ "^__COMMANDS_END__" {in_c=0; exit}
     in_c {print}
   ' "$NFO_FILE")
 
   mapfile -t commands <<< "$(awk '
     BEGIN {cmd=""; in_cmd=0}
-    /^__COMMAND__$/ {if (cmd != "") print cmd; cmd=""; in_cmd=1; next}
-    /^__COMMAND__$/ {next}
-    /^__\w+__$/ {if (in_cmd) {print cmd; cmd="";} in_cmd=0}
+    /^__COMMAND_START__$/ {if(cmd!="") print cmd; cmd=""; in_cmd=1; next}
+    /^__COMMAND_END__$/ {if(in_cmd){print cmd; cmd="";} in_cmd=0; next}
     {if(in_cmd) cmd=cmd $0 "\n"}
     END {if(cmd!="") print cmd}
   ' <<< "$cmds_block")"
