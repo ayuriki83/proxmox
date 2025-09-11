@@ -19,14 +19,14 @@ services:
       - data:/data
       - config:/config
     environment:
-      - CLOUDFLARE_API_TOKEN=[API_TOKEN]
+      - CLOUDFLARE_API_TOKEN=##API_TOKEN##
 volumes:
   data:
   config:
 networks:
   default:
     external: true
-    name: [DOCKER_BRIDGE_NM]
+    name: ##DOCKER_BRIDGE_NM##
 EOF
 </compose>
 </docker>
@@ -58,13 +58,13 @@ volumes:
 networks:
   default:
     external: true
-    name [DOCKER_BRIDGE_NM]
+    name ##DOCKER_BRIDGE_NM##
 EOF
 </compose>
 <caddys>
 <caddy>
     # Portainer
-    @portainer host portainer.[DOMAIN]
+    @portainer host portainer.##DOMAIN##
     handle @portainer {
         reverse_proxy portainer:9000 {
             header_up X-Forwarded-For {remote_host}
@@ -127,13 +127,13 @@ services:
 networks:
   default:
     external: true
-    name: [DOCKER_BRIDGE_NM]
+    name: ##DOCKER_BRIDGE_NM##
 EOF &&  cat > /docker/rclone/rclone.conf << 'EOF'
 [google]
 type = drive
 scope = drive
-gds_userid = [GDS_USERID]
-gds_apikey = [GDS_APIKEY]
+gds_userid = ##GDS_USERID##
+gds_apikey = ##GDS_APIKEY##
 gds_endpoint = https://api.sjva.me/v1/gds_auth
 EOF && cat > filter.txt << 'EOF'
 - Featurettes/**
@@ -202,20 +202,20 @@ volumes:
 networks:
   default:
     external: true
-    name: [DOCKER_BRIDGE_NM]
+    name: ##DOCKER_BRIDGE_NM##
 EOF
 </compose>
 <caddys>
 <caddy>
     # Plex Media Server + Hook
-    @plex host plex.[DOMAIN]
+    @plex host plex.##DOMAIN##
     handle @plex {
         reverse_proxy plex:32400 {
             header_up X-Forwarded-For {remote_host}
             header_up X-Real-IP {remote_host}
         }
     }
-    @plexhook host plexhook.[DOMAIN]
+    @plexhook host plexhook.##DOMAIN##
     handle @plexhook {
         reverse_proxy ff:9998 {
             header_up X-Forwarded-For {remote_host}
@@ -225,7 +225,7 @@ EOF
 </caddy>
 <caddy>
     # FF
-    @ff host ff.[DOMAIN]
+    @ff host ff.##DOMAIN##
     handle @ff {
         reverse_proxy ff:9999 {
             header_up X-Forwarded-For {remote_host}
@@ -260,13 +260,13 @@ services:
 networks:
   default:
     external: true
-    name: [DOCKER_BRIDGE_NM]
+    name: ##DOCKER_BRIDGE_NM##
 EOF
 </compose>
 <caddys>
 <caddy>
     # Jellyfin
-    @jellyfin host jellyfin.[DOMAIN]
+    @jellyfin host jellyfin.##DOMAIN##
     handle @jellyfin {
         reverse_proxy jellyfin:8096 {
             header_up X-Forwarded-For {remote_host}
@@ -305,13 +305,13 @@ services:
 networks:
   default:
     external: true
-    name: [DOCKER_BRIDGE_NM]
+    name: ##DOCKER_BRIDGE_NM##
 EOF
 </compose>
 <caddys>
 <caddy>
     # Kavita
-    @kavita host kavita.[DOMAIN]
+    @kavita host kavita.##DOMAIN##
     handle @kavita {
         reverse_proxy kavita:5000 {
             header_up X-Forwarded-For {remote_host}
@@ -346,13 +346,13 @@ volumes:
 networks:
   default:
     external: true
-    name: [DOCKER_BRIDGE_NM]
+    name: ##DOCKER_BRIDGE_NM##
 EOF
 </compose>
 <caddys>
 <caddy>
     # Beszel
-    @beszel host beszel.[DOMAIN]
+    @beszel host beszel.##DOMAIN##
     handle @beszel {
         reverse_proxy beszel:8090 {
             header_up X-Forwarded-For {remote_host}
@@ -382,13 +382,13 @@ volumes:
 networks:
   default:
     external: true
-    name: [DOCKER_BRIDGE_NM]
+    name: ##DOCKER_BRIDGE_NM##
 EOF
 </compose>
 <caddys>
 <caddy>
     # Uptime Kuma
-    @uptime host uptime.[DOMAIN]
+    @uptime host uptime.##DOMAIN##
     handle @uptime {
         reverse_proxy uptime-kuma:3001 {
             header_up X-Forwarded-For {remote_host}
@@ -417,14 +417,14 @@ services:
 networks:
   default:
     external: true
-    name: [DOCKER_BRIDGE_NM]
+    name: ##DOCKER_BRIDGE_NM##
 EOF
 </compose>
 </docker>
 <caddys>
 <caddy>
     # Vaultwarden
-    @vaultwarden host pw.[DOMAIN]
+    @vaultwarden host pw.##DOMAIN##
     handle @vaultwarden {
         reverse_proxy vaultwarden:80 {
             header_up X-Forwarded-For {remote_host}
@@ -438,19 +438,19 @@ EOF
 <final>
 cat > /docker/caddy/conf/Caddyfile << 'EOF'
 {
-    email [email]
+    email ##email##
 }
 
 # 와일드카드 인증서로 모든 서브도메인 처리
-*.[DOMAIN] {
+*.##DOMAIN## {
     tls {
         dns cloudflare {env.CLOUDFLARE_API_TOKEN}
     }
 
     # Proxmox
-    @proxmox host pve.[DOMAIN]
+    @proxmox host pve.##DOMAIN##
     handle @proxmox {
-        reverse_proxy https://[PROXMOX_IP]:8006 {
+        reverse_proxy https://##PROXMOX_IP##:8006 {
             transport http {
                 tls_insecure_skip_verify
             }
@@ -477,7 +477,7 @@ cat > /docker/caddy/conf/Caddyfile << 'EOF'
 }
 
 # 메인 도메인 (와일드카드에 포함되지 않음)
-[DOMAIN] {
+##DOMAIN## {
     tls {
         dns cloudflare {env.CLOUDFLARE_API_TOKEN}
     }
