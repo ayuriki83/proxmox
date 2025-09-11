@@ -61,9 +61,9 @@ printf "|-----|----------------|----------|\n"
 opt_idx=1
 OPTIONAL_INDEX=()
 for i in "${!DOCKER_NAMES[@]}"; do
-  local name="${DOCKER_NAMES[i]}"
-  local required="${DOCKER_REQUIRED[i]}"
-  local no=""
+  name="${DOCKER_NAMES[i]}"
+  required="${DOCKER_REQUIRED[i]}"
+  no=""
   if [[ "$required" == "false" ]]; then
     no=$opt_idx
     OPTIONAL_INDEX+=("${i}:${no}:${name}")
