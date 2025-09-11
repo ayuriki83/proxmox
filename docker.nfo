@@ -64,7 +64,7 @@ EOF
 <caddys>
 <caddy>
     # Portainer
-    @portainer host portainer.[domain]
+    @portainer host portainer.[DOMAIN]
     handle @portainer {
         reverse_proxy portainer:9000 {
             header_up X-Forwarded-For {remote_host}
@@ -132,8 +132,8 @@ EOF &&  cat > /docker/rclone/rclone.conf << 'EOF'
 [google]
 type = drive
 scope = drive
-gds_userid = {GDS_USERID}
-gds_apikey = {GDS_APIKEY}
+gds_userid = [GDS_USERID]
+gds_apikey = [GDS_APIKEY]
 gds_endpoint = https://api.sjva.me/v1/gds_auth
 EOF && cat > filter.txt << 'EOF'
 - Featurettes/**
@@ -208,14 +208,14 @@ EOF
 <caddys>
 <caddy>
     # Plex Media Server + Hook
-    @plex host plex.[domain]
+    @plex host plex.[DOMAIN]
     handle @plex {
         reverse_proxy plex:32400 {
             header_up X-Forwarded-For {remote_host}
             header_up X-Real-IP {remote_host}
         }
     }
-    @plexhook host plexhook.[domain]
+    @plexhook host plexhook.[DOMAIN]
     handle @plexhook {
         reverse_proxy ff:9998 {
             header_up X-Forwarded-For {remote_host}
@@ -225,7 +225,7 @@ EOF
 </caddy>
 <caddy>
     # FF
-    @ff host ff.[domain]
+    @ff host ff.[DOMAIN]
     handle @ff {
         reverse_proxy ff:9999 {
             header_up X-Forwarded-For {remote_host}
@@ -266,7 +266,7 @@ EOF
 <caddys>
 <caddy>
     # Jellyfin
-    @jellyfin host jellyfin.[domain]
+    @jellyfin host jellyfin.[DOMAIN]
     handle @jellyfin {
         reverse_proxy jellyfin:8096 {
             header_up X-Forwarded-For {remote_host}
@@ -311,7 +311,7 @@ EOF
 <caddys>
 <caddy>
     # Kavita
-    @kavita host kavita.[domain]
+    @kavita host kavita.[DOMAIN]
     handle @kavita {
         reverse_proxy kavita:5000 {
             header_up X-Forwarded-For {remote_host}
@@ -352,7 +352,7 @@ EOF
 <caddys>
 <caddy>
     # Beszel
-    @beszel host beszel.[domain]
+    @beszel host beszel.[DOMAIN]
     handle @beszel {
         reverse_proxy beszel:8090 {
             header_up X-Forwarded-For {remote_host}
@@ -388,7 +388,7 @@ EOF
 <caddys>
 <caddy>
     # Uptime Kuma
-    @uptime host uptime.[domain]
+    @uptime host uptime.[DOMAIN]
     handle @uptime {
         reverse_proxy uptime-kuma:3001 {
             header_up X-Forwarded-For {remote_host}
@@ -424,7 +424,7 @@ EOF
 <caddys>
 <caddy>
     # Vaultwarden
-    @vaultwarden host pw.[domain]
+    @vaultwarden host pw.[DOMAIN]
     handle @vaultwarden {
         reverse_proxy vaultwarden:80 {
             header_up X-Forwarded-For {remote_host}
@@ -442,13 +442,13 @@ cat > /docker/caddy/conf/Caddyfile << 'EOF'
 }
 
 # 와일드카드 인증서로 모든 서브도메인 처리
-*.[domain] {
+*.[DOMAIN] {
     tls {
         dns cloudflare {env.CLOUDFLARE_API_TOKEN}
     }
 
     # Proxmox
-    @proxmox host pve.[domain]
+    @proxmox host pve.[DOMAIN]
     handle @proxmox {
         reverse_proxy https://[PROXMOX_IP]:8006 {
             transport http {
@@ -477,7 +477,7 @@ cat > /docker/caddy/conf/Caddyfile << 'EOF'
 }
 
 # 메인 도메인 (와일드카드에 포함되지 않음)
-[domain] {
+[DOMAIN] {
     tls {
         dns cloudflare {env.CLOUDFLARE_API_TOKEN}
     }
