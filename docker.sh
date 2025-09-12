@@ -1,117 +1,62 @@
 #!/bin/bash
 
-# 9:56
-# 자동화 스크립트 (커스텀 NFO 마커 파싱 & EOF 안전 실행)
-# - 문제 원인: docker.nfo에 마커(__EOFS_START__, __EOF_START__ 등)가 한 줄에 이어붙어 있어
-#   '^__EOFS_START__$' 같은 라인 매칭이 실패 → EOF 블록 추출 불가.
-# - 해결: NFO를 전처리하여 모든 마커를 개행으로 분리한 임시 파일을 만든 뒤, 라인 단위 파싱.
-# - 추가: docker.env가 한 줄에 공백으로 나열된 key="value" 형식 → 토큰 단위 파싱 지원.
-# - 자리표시자(##KEY##)는 EOF/FINAL 블록에 대해 사전 치환 후 bash 실행.
-# - 변수명, 함수명은 기존 것을 유지.
+# 10:20
+# 자동화 스크립트 (커스텀 INI 스타일 NFO: CMD/EOFS/EOF/FINAL 대응)
+# - 서비스별 명령/파일 블록 파싱, 환경변수 치환
+# - CMD는 직접 실행, EOFS/EOF는 파일생성
+# - FINAL은 경로 지정하여 생성
+# - 주요 로그 및 단계별 디버그출력
 
-set -euo pipefail
-
-log() {
-  echo "[$(date '+%F %T')] $*"
-}
+set -e
 
 NFO_FILE="./docker.nfo"
 ENV_FILE="./docker.env"
 
 if [ ! -f "$NFO_FILE" ]; then
-  echo "오류: $NFO_FILE 파일이 없습니다."
+  echo "오류: NFO 파일이 없습니다: $NFO_FILE"
   exit 1
 fi
 
-# ------------------------------------------------------------------------------
-# 0) docker.nfo 전처리: 모든 마커 토큰을 개행으로 분리해 라인 매칭 가능하게 변환
-#    (예: "__EOFS_START__ __EOF_START__ ..." → 각 토큰이 자기 라인에 위치)
-# ------------------------------------------------------------------------------
-TMP_NFO="$(mktemp)"
-# 마커 패턴: __UPPERCASE_WITH_UNDERSCORE__
-# 양 옆에 항상 개행을 삽입하고, 연속 개행은 1개로 축소
-sed -E 's/(__[A-Z]+(_[A-Z]+)*__)/\n\1\n/g' "$NFO_FILE" | sed -E ':a;N;$!ba;s/\n{2,}/\n/g' > "$TMP_NFO"
-
-# ------------------------------------------------------------------------------
-# 1) 환경변수 로드: docker.env의 한 줄 공백 구분 key="value" 포맷 지원
-# ------------------------------------------------------------------------------
 declare -A ENV_VALUES
-
 if [ -f "$ENV_FILE" ]; then
-  # 예) DOCKER_BRIDGE_NM="ProxyNet" API_TOKEN="AAAA" ...
-  # 토큰 단위로 끊어 각 key/value 추출
-  while read -r line; do
-    # 라인 내에서 key="value" 패턴을 모두 뽑아 반복
-    # 안전하게 따옴표만 제거
-    while read -r token; do
-      [ -z "$token" ] && continue
-      key="${token%%=*}"
-      val="${token#*=}"
-      # val에서 앞뒤 큰따옴표만 제거
-      val="${val%\"}"
-      val="${val#\"}"
-      key="${key//[[:space:]]/}"
-      [ -n "$key" ] && ENV_VALUES["$key"]="$val"
-    done < <(grep -oE '[A-Za-z_][A-Za-z0-9_]*="[^"]*"' <<< "$line" || true)
+  while IFS='=' read -r key val; do
+    key=${key//[[:space:]]/}
+    val=$(echo "$val" | sed -e 's/^"//' -e 's/"$//')
+    ENV_VALUES[$key]=$val
   done < "$ENV_FILE"
 else
   touch "$ENV_FILE"
 fi
 
-# ------------------------------------------------------------------------------
-# 2) NFO에서 자리표시자 키 목록 수집 → 값 없으면 입력 받아 ENV_FILE에 라인 단위로 append
-# ------------------------------------------------------------------------------
-mapfile -t ENV_KEYS < <(grep -oP '##\K[^#]+(?=##)' "$TMP_NFO" | sort -u || true)
-
-load_env() {
-  local key="$1"
-  if [ -z "${ENV_VALUES[$key]+_}" ] || [ -z "${ENV_VALUES[$key]}" ]; then
-    read -rp "환경변수 '$key' 값을 입력하세요: " val
-    ENV_VALUES[$key]="$val"
-    # docker.env에 라인 단위로 안전 추가
-    printf '%s="%s"\n' "$key" "$val" >> "$ENV_FILE"
-  fi
-}
-
+# NFO 내 환경변수 키 목록 추출 및 입력 받음
+mapfile -t ENV_KEYS < <(grep -oP '##\K[^#]+(?=##)' "$NFO_FILE" | sort -u)
 for key in "${ENV_KEYS[@]}"; do
-  load_env "$key"
+  if [ -z "${ENV_VALUES[$key]}" ]; then
+    read -rp "환경변수 '$key' 값을 입력하세요: " val
+    ENV_VALUES[$key]=$val
+    echo "$key=\"$val\"" >> "$ENV_FILE"
+  fi
 done
 
-# ------------------------------------------------------------------------------
-# 3) 서비스 목록 파싱: __DOCKER_START__ name=xxx req=true|false
-#    (이제 마커가 각 라인에 분리되어 있으므로 라인 단위 정규식으로 안정 파싱 가능)
-# ------------------------------------------------------------------------------
 DOCKER_NAMES=()
 DOCKER_REQ=()
+DOCKER_BLOCKS=()
 
-# in_block 변수를 명시적으로 초기화
-in_block=0
-
-while IFS= read -r line || [ -n "$line" ]; do
-  if [[ "$line" =~ ^__DOCKER_START__ ]]; then
-    in_block=1
-    continue
+# 서비스 목록 및 각 블록의 시작라인 기록
+block_start=0
+while IFS= read -r line || [[ -n "$line" ]]; do
+  if [[ $line =~ ^__DOCKER_START__\ name=([^[:space:]]+)\ req=([^[:space:]]+) ]]; then
+    DOCKER_NAMES+=("${BASH_REMATCH[1]}")
+    DOCKER_REQ+=("${BASH_REMATCH[2]}")
+    block_start=$((block_start+1))
+    DOCKER_BLOCKS+=($block_start)
   fi
+  block_start=$((block_start+1))
+done < "$NFO_FILE"
 
-  if [[ $in_block -eq 1 ]]; then
-    if [[ "$line" =~ name=([^[:space:]]+)[[:space:]]+req=([^[:space:]]+) ]]; then
-      name="${BASH_REMATCH[1]//\"/}"
-      req="${BASH_REMATCH[2]//\"/}"
-      DOCKER_NAMES+=("$name")
-      DOCKER_REQ+=("$req")
-    else
-      echo "[DEBUG] name/req 패턴 매칭 실패: $line"
-    fi
-    in_block=0
-  fi
-done < "$TMP_NFO"
-
-echo "[DEBUG] 파싱 완료: 총 ${#DOCKER_NAMES[@]}개 서비스 발견"
-
-# 보기 표 출력
-printf "========== Docker Services ==========|\n"
-printf "| %3s | %-18s | %-9s |\n" "No." "Name" "ReqYn"
-printf "|-----|--------------------|-----------|\n"
+printf "========== Docker Services ==========\n"
+printf "| %3s | %-15s | %-9s |\n" "No." "Name" "ReqYn"
+printf "|-----|-----------------|-----------|\n"
 opt_idx=1
 OPTIONAL_INDEX=()
 for i in "${!DOCKER_NAMES[@]}"; do
@@ -123,24 +68,24 @@ for i in "${!DOCKER_NAMES[@]}"; do
     OPTIONAL_INDEX+=("${i}:${no}:${name}")
     ((opt_idx++))
   fi
-  printf "| %3s | %-18s | %-9s |\n" "$no" "$name" "$req"
+  printf "| %3s | %-15s | %-9s |\n" "$no" "$name" "$req"
 done
-printf "|-----|--------------------|-----------|\n\n"
-
+printf "|-----|-----------------|-----------|\n\n"
 if (( ${#OPTIONAL_INDEX[@]} == 0 )); then
-  echo "[WARN] 선택 가능한(선택 설치) 서비스가 없습니다."
+  echo "[WARN] 선택 가능한 서비스가 없습니다."
 fi
 
 read -rp "실행할 서비스 번호를 ','로 구분하여 입력하세요 (예: 1,3,5): " input_line
 IFS=',' read -r -a selected_nums <<< "$input_line"
+
 declare -A SELECTED_SERVICES=()
 for num in "${selected_nums[@]}"; do
-  num_trimmed="$(echo "$num" | xargs)"
+  num_trimmed=$(echo "$num" | xargs)
   for item in "${OPTIONAL_INDEX[@]}"; do
-    idx="${item%%:*}"
-    rest="${item#*:}"
-    n="${rest%%:*}"
-    s="${rest#*:}"
+    idx=${item%%:*}
+    rest=${item#*:}
+    n=${rest%%:*}
+    s=${rest#*:}
     if [[ "$num_trimmed" == "$n" ]]; then
       SELECTED_SERVICES["$s"]=1
     fi
@@ -154,7 +99,7 @@ for i in "${!DOCKER_NAMES[@]}"; do
   req="${DOCKER_REQ[i]}"
   if [[ "$req" == "true" ]]; then
     REQS+=("$name")
-  elif [[ -n "${SELECTED_SERVICES[$name]+_}" ]]; then
+  elif [[ -n "${SELECTED_SERVICES[$name]}" ]]; then
     OPTS+=("$name")
   fi
 done
@@ -163,156 +108,82 @@ ALL_SERVICES=("${REQS[@]}" "${OPTS[@]}")
 echo
 echo "실행 대상: ${ALL_SERVICES[*]}"
 
-# ------------------------------------------------------------------------------
-# 4) 치환 유틸: ##KEY## → ENV_VALUES[KEY]
-#    sed 안전 치환을 위해 슬래시/역슬래시 등 이스케이프 처리
-# ------------------------------------------------------------------------------
-_escape_sed_repl() {
-  # sed replacement 영역에 들어갈 문자열 이스케이프
-  local s="$1"
-  s="${s//\\/\\\\}"   # backslash
-  s="${s//&/\\&}"     # &
-  s="${s//\//\\/}"    # /
-  printf '%s' "$s"
-}
-
-# 지정한 서비스 이름을 가진 DOCKER 블록 전체를 그대로 반환
-_get_service_block() {
-  local svc="$1"
-  local capture=0 buf="" name_ok=0
-
-  while IFS= read -r line || [ -n "$line" ]; do
-    if [[ "$line" =~ __DOCKER_START__ ]]; then
-      capture=1; buf="$line"$'\n'; name_ok=0; continue
-    fi
-    if (( capture )); then
-      buf+="$line"$'\n'
-      [[ "$line" =~ name[[:space:]]*=[[:space:]]*\"?$svc\"? ]] && name_ok=1
-      if [[ "$line" =~ __DOCKER_END__ ]]; then
-        if (( name_ok )); then
-          printf '%s' "$buf"; return 0
-        fi
-        capture=0; buf=""; name_ok=0
-      fi
-    fi
-  done < "$TMP_NFO"
-
-  return 1
-}
-
-_replace_placeholders() {
-  # stdin → stdout
-  local content
-  content="$(cat)"
-  for k in "${!ENV_VALUES[@]}"; do
-    v="$(_escape_sed_repl "${ENV_VALUES[$k]}")"
-    content="$(printf '%s' "$content" | sed -E "s/##${k}##/${v}/g")"
-  done
-  printf '%s' "$content"
-}
-
-# ------------------------------------------------------------------------------
-# 5) 실행기: 선택 서비스 내 __CMD_START__/__CMD_END__ 와 __EOFS_START__/__EOF_START__/__EOF_END__/__EOFS_END__ 처리
-# ------------------------------------------------------------------------------
 run_commands() {
   local svc="$1"
-  echo
-  echo "=== 실행: $svc ==="
+  echo -e "\n=== 실행: $svc ==="
 
-  local block
-  block="$(_get_service_block "$svc")"
+  # 블록 범위 추출
+  line_start=$(grep -n "^__DOCKER_START__ name=$svc " "$NFO_FILE" | cut -d: -f1)
+  line_end=$(grep -n "^__DOCKER_END__" "$NFO_FILE" | awk '$1 > '"$line_start"' {print $1; exit}')
+  ((line_end--))
+  block_lines=$(sed -n "${line_start},${line_end}p" "$NFO_FILE")
 
-  if [[ -z "$block" ]]; then
-    log "[WARN] 서비스 [$svc] 블록을 찾지 못했습니다."
-    return
+  # CMD 파싱 및 실행
+  cmd_block=$(echo "$block_lines" | awk '
+    $0 ~ /^__CMD_START__$/ {in_cmd=1; next}
+    $0 ~ /^__CMD_END__$/ {in_cmd=0; next}
+    in_cmd {print}
+  ')
+  if [[ -n "$cmd_block" ]]; then
+    echo "-- 단일명령(DEBUG $svc) --"
+    echo "$cmd_block"
+    eval "$cmd_block"
+    echo "-- 명령 실행 완료 --"
   fi
 
-  # 디버그: 블록 앞 10줄만 출력
-  log "[DEBUG] [$svc] 블록 미리보기 ↓"
-  printf '%s\n' "$block" | head -n 10
-
-  # CMD 처리
-  local cmd_index=0 cmd_content="" in_cmd=0
-  while IFS= read -r line; do
-    if [[ "$line" == *"__CMD_START__"* ]]; then
-      in_cmd=1; cmd_content=""; continue
-    fi
-    if [[ "$line" == *"__CMD_END__"* ]] && (( in_cmd )); then
-      ((cmd_index++))
-      local tmpf="/tmp/docker_${svc}_cmd_${cmd_index}.sh"
-      printf '%s\n' "$cmd_content" | _replace_placeholders > "$tmpf"
-      chmod +x "$tmpf"
-      log "[INFO] CMD 저장: $tmpf"
-      bash "$tmpf"
-      in_cmd=0; cmd_content=""; continue
-    fi
-    (( in_cmd )) && cmd_content+="$line"$'\n'
-  done <<< "$block"
-
-  # EOF 처리
-  local eof_index=0 eof_content="" in_eofs=0 in_eof=0
-  while IFS= read -r line; do
-    if [[ "$line" == *"__EOFS_START__"* ]]; then in_eofs=1; continue; fi
-    if [[ "$line" == *"__EOFS_END__"* ]]; then in_eofs=0; in_eof=0; eof_content=""; continue; fi
-    (( in_eofs==0 )) && continue
-
-    if [[ "$line" == *"__EOF_START__"* ]]; then in_eof=1; eof_content=""; continue; fi
-    if [[ "$line" == *"__EOF_END__"* ]] && (( in_eof )); then
-      in_eof=0; ((eof_index++))
-      local tmpf="/tmp/docker_${svc}_eof_${eof_index}.sh"
-      printf '%s\n' "$eof_content" | _replace_placeholders > "$tmpf"
-      chmod +x "$tmpf"
-      log "[INFO] EOF 저장: $tmpf"
-      bash "$tmpf"
-      eof_content=""; continue
-    fi
-    (( in_eof )) && eof_content+="$line"$'\n'
-  done <<< "$block"
-
-  if ((cmd_index==0 && eof_index==0)); then
-    log "[WARN] 서비스 [$svc]에서 CMD/EOF 블록을 찾지 못했습니다."
-  else
-    log "[INFO] 서비스 [$svc] 처리 완료 (CMD:$cmd_index, EOF:$eof_index)"
+  # EOFS/EOF 파싱 및 파일 생성
+  eofs_blocks=$(echo "$block_lines" | awk '
+    $0 ~ /^__EOFS_START__$/ {in_eofs=1; next}
+    $0 ~ /^__EOFS_END__$/ {in_eofs=0; next}
+    in_eofs {print}
+  ')
+  if [[ -n "$eofs_blocks" ]]; then
+    while read -r eof_start_line; do
+      [[ -z "$eof_start_line" ]] && continue
+      # 파일명 추출 (__EOF_START__ /docker/caddy/docker-compose.yml)
+      if [[ $eof_start_line =~ ^__EOF_START__\ (.+) ]]; then
+        eof_path="${BASH_REMATCH[1]}"
+        eof_content=$(echo "$eofs_blocks" | awk '
+          $0 ~ /^__EOF_START__ '"$eof_path"'$/ {in_eof=1; next}
+          $0 ~ /^__EOF_END__$/ {in_eof=0; exit}
+          in_eof {print}
+        ')
+        # 환경변수 치환
+        for k in "${!ENV_VALUES[@]}"; do
+          eof_content=$(echo "$eof_content" | sed "s/##$k##/${ENV_VALUES[$k]}/g")
+        done
+        mkdir -p "$(dirname "$eof_path")"
+        echo "$eof_content" > "$eof_path"
+        echo "--- 파일 생성됨: $eof_path"
+      fi
+    done < <(echo "$eofs_blocks" | grep "^__EOF_START__")
   fi
-
-  # /tmp 파일 생성 확인
-  echo
-  log "[CHECK] /tmp 내 [$svc] 관련 파일 목록"
-  ls -1 /tmp/docker_${svc}_* 2>/dev/null || echo "(생성된 파일 없음)"
 }
 
-# ------------------------------------------------------------------------------
-# 6) 선택된 모든 서비스 실행
-# ------------------------------------------------------------------------------
 for svc in "${ALL_SERVICES[@]}"; do
   run_commands "$svc"
 done
 
-# ------------------------------------------------------------------------------
-# 7) FINAL 블록(Caddyfile)도 치환 적용하여 생성
-# ------------------------------------------------------------------------------
-final_block="$(
-  awk '
-    BEGIN{in_f=0}
-    /^\s*__FINAL_START__/ {in_f=1; next}
-    /^\s*__FINAL_END__/   {in_f=0; exit}
-    in_f {print}
-  ' "$TMP_NFO"
-)"
+# FINAL 블록 처리
+final_filename=$(awk '
+  BEGIN{fn=""}
+  /^\s*__FINAL_START__/ {getline; fn=$1; print fn; exit}
+' "$NFO_FILE")
+final_content=$(awk '
+  BEGIN{in_f=0}
+  /^\s*__FINAL_START__/ {in_f=1; getline; next}
+  /^\s*__FINAL_END__/ {in_f=0; exit}
+  in_f {print}
+' "$NFO_FILE")
 
-mkdir -p /docker/caddy/conf
-if [[ -n "$final_block" ]]; then
-  if [[ "${#ENV_KEYS[@]}" -gt 0 ]]; then
-    printf '%s' "$final_block" | _replace_placeholders > /docker/caddy/conf/Caddyfile
-  else
-    printf '%s' "$final_block" > /docker/caddy/conf/Caddyfile
-  fi
-  log "Caddyfile 생성됨: /docker/caddy/conf/Caddyfile"
-else
-  log "FINAL 블록이 없어 Caddyfile을 생성하지 않았습니다."
-fi
+# 환경변수 치환
+for k in "${!ENV_VALUES[@]}"; do
+  final_content=$(echo "$final_content" | sed "s/##$k##/${ENV_VALUES[$k]}/g")
+done
+mkdir -p "$(dirname "$final_filename")"
+echo "$final_content" > "$final_filename"
+echo "[완료] 최종 파일 생성됨: $final_filename"
+log
 
-# 마무리
-rm -f "$TMP_NFO"
-log "모든 작업 완료"
-# 필요시: docker exec caddy caddy reload || echo "caddy reload 실패"
+# 필요시 추가처리 (예: caddy reload)
+# docker exec caddy caddy reload || echo "caddy reload 실패"
