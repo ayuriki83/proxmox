@@ -1,15 +1,13 @@
 #!/bin/bash
 
 # Perplexity
-# 10:34
-# 자동화 스크립트 (커스텀 INI 스타일 NFO 대응: CMD/EOFS/EOF/FINAL)
-# - NFO 사용자정의 마커(__DOCKER_START__, __CMD_START__, __EOFS_START__, __EOF_START__, __FINAL_START__ 등) 직접 파싱
-# - 환경변수 ##KEY## 형식 치환
-# - 커맨드 블록 실행 및 다중라인 파일 생성
-# - 함수 외부에서는 local 제거, 변수만 선언
-# - 함수 내부만 local 사용
-# - 메인 구간 전체 bash 루프·판정 위주(awk는 line번호 추출에만 사용, 정규식 없음)
-# - 주요 단계별 디버깅/로그 안내
+# 10:52
+# 자동화 스크립트 (CMD/EOFS/EOF/FINAL+DOCKER_CADDY 완전 대응)
+# - NFO 사용자정의 마커 직접 파싱
+# - 환경변수 치환
+# - 도커 서비스별 명령 및 compose 파일 생성 완성
+# - CADDYS 블록 병합 및 _DOCKER_ 치환하여 Caddyfile 제작
+# - 단계별 로그 및 디버깅 메시지 포함
 
 set -e
 
@@ -21,7 +19,6 @@ if [ ! -f "$NFO_FILE" ]; then
   exit 1
 fi
 
-# 환경변수 초기화 및 로드
 declare -A ENV_VALUES
 if [ -f "$ENV_FILE" ]; then
   while IFS='=' read -r key val; do
@@ -33,7 +30,6 @@ else
   touch "$ENV_FILE"
 fi
 
-# NFO 내 환경변수 리스트 추출
 mapfile -t ENV_KEYS < <(grep -oP '##\K[^#]+(?=##)' "$NFO_FILE" | sort -u)
 for key in "${ENV_KEYS[@]}"; do
   if [ -z "${ENV_VALUES[$key]}" ]; then
@@ -46,7 +42,6 @@ done
 DOCKER_NAMES=()
 DOCKER_REQ=()
 
-# 도커 서비스 정보 파싱(마커 따옴표·공백 호환, 정규식 최소화)
 while IFS= read -r line; do
   if [[ $line =~ ^__DOCKER_START__\ name=([^[:space:]]+)\ req=([^[:space:]]+) ]]; then
     DOCKER_NAMES+=("${BASH_REMATCH[1]}")
@@ -113,7 +108,6 @@ echo "실행 대상: ${ALL_SERVICES[*]}"
 run_commands() {
   local svc="$1"
   echo -e "\n=== 실행: $svc ==="
-  # 블록 범위(라인번호) 탐색 (정수로만)
   line_start=$(awk '/^__DOCKER_START__ name='"$svc"' /{print NR}' "$NFO_FILE" | head -n1)
   line_end=$(awk 'NR>'$line_start' && /^__DOCKER_END__/{print NR; exit}' "$NFO_FILE")
   if [[ -z "$line_start" || -z "$line_end" ]]; then
@@ -122,7 +116,7 @@ run_commands() {
   fi
   mapfile -t block_lines < <(sed -n "${line_start},${line_end}p" "$NFO_FILE")
 
-  # CMD 처리
+  # 단일 CMD 실행
   in_cmd=0
   cmd_lines=()
   for line in "${block_lines[@]}"; do
@@ -137,7 +131,7 @@ run_commands() {
     echo "-- 명령 실행 완료 --"
   fi
 
-  # EOFS/EOF 처리 (bash 루프로 안전하게)
+  # EOFS/EOF 파일 생성
   in_eofs=0
   in_eof=0
   eof_path=""
@@ -168,40 +162,56 @@ run_commands() {
   done
 }
 
+# CADDYS 블록 추출 함수
+extract_caddys() {
+  local svc=$1
+  awk -v svc="$svc" '
+    $0 ~ ("^__DOCKER_START__ name=" svc " ") { in_docker=1; next }
+    in_docker && /^__CADDYS_START__/ { in_caddys=1; next }
+    in_docker && /^__CADDYS_END__/ { in_caddys=0; next }
+    in_docker && in_caddys && /^__CADDY_START__/ { in_caddy=1; caddy_block=""; next }
+    in_docker && in_caddys && /^__CADDY_END__/ { in_caddy=0; print caddy_block; next }
+    in_docker && in_caddys && in_caddy { caddy_block = caddy_block $0 "\n"; next }
+    in_docker && /^__DOCKER_END__/ { in_docker=0 }
+  ' "$NFO_FILE"
+}
+
+generate_caddyfile() {
+  local combined_caddy=""
+  for svc in "${ALL_SERVICES[@]}"; do
+    caddy_block=$(extract_caddys "$svc")
+    # 변수 치환: ##DOMAIN## 등
+    for key in "${!ENV_VALUES[@]}"; do
+      caddy_block=${caddy_block//"##$key##"/"${ENV_VALUES[$key]}"}
+    done
+    combined_caddy+=$'\n'"$caddy_block"
+  done
+
+  # FINAL 블록 추출
+  final_block=$(awk '
+    BEGIN {in_final=0}
+    /^__FINAL_START__/ { in_final=1; next }
+    /^__FINAL_END__/ { in_final=0; exit }
+    in_final { print }
+  ' "$NFO_FILE")
+
+  # 환경변수 치환 및 _DOCKER_ 자리 치환
+  for key in "${!ENV_VALUES[@]}"; do
+    final_block=${final_block//"##$key##"/"${ENV_VALUES[$key]}"}
+  done
+  final_block=${final_block//"_DOCKER_"/"$combined_caddy"}
+
+  mkdir -p ./docker/caddy/conf
+  echo "$final_block" > ./docker/caddy/conf/Caddyfile
+  echo "Caddyfile 생성 완료: ./docker/caddy/conf/Caddyfile"
+}
+
+# 전체 서비스 실행 및 Caddyfile 생성 호출
 for svc in "${ALL_SERVICES[@]}"; do
   run_commands "$svc"
 done
 
-# FINAL 블록 처리
-final_filename=""
-final_content=""
-in_final=0
-while IFS= read -r line; do
-  if [[ "$line" =~ ^__FINAL_START__\ (.+) ]]; then
-    in_final=1
-    final_filename="${BASH_REMATCH[1]}"
-    continue
-  fi
-  if [[ "$line" == "__FINAL_END__" ]]; then
-    in_final=0
-    continue
-  fi
-  if ((in_final)); then
-    final_content+="$line"$'\n'
-  fi
-done < "$NFO_FILE"
-
-if [[ -n "$final_filename" ]]; then
-  for k in "${!ENV_VALUES[@]}"; do
-    final_content=$(echo "$final_content" | sed "s/##$k##/${ENV_VALUES[$k]}/g")
-  done
-  mkdir -p "$(dirname "$final_filename")"
-  echo -n "$final_content" > "$final_filename"
-  echo "[완료] 최종 파일 생성됨: $final_filename"
-fi
+generate_caddyfile
 
 echo "모든 작업 완료."
 log
-
-# 필요시 추가 액션(예: caddy reload)
-# docker exec caddy caddy reload || echo "caddy reload 실패"
