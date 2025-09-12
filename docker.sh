@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 10:20
+# 10:23
 # 자동화 스크립트 (커스텀 INI 스타일 NFO: CMD/EOFS/EOF/FINAL 대응)
 # - 서비스별 명령/파일 블록 파싱, 환경변수 치환
 # - CMD는 직접 실행, EOFS/EOF는 파일생성
@@ -112,10 +112,13 @@ run_commands() {
   local svc="$1"
   echo -e "\n=== 실행: $svc ==="
 
-  # 블록 범위 추출
-  line_start=$(grep -n "^__DOCKER_START__ name=$svc " "$NFO_FILE" | cut -d: -f1)
-  line_end=$(grep -n "^__DOCKER_END__" "$NFO_FILE" | awk '$1 > '"$line_start"' {print $1; exit}')
-  ((line_end--))
+  # 서비스 블록 시작/끝번호 추출, 빈값/문자열 오류 방지
+  line_start=$(awk '/^__DOCKER_START__ name='"$svc"' /{print NR}' "$NFO_FILE" | head -n1)
+  line_end=$(awk 'NR>'$line_start' && /^__DOCKER_END__/{print NR; exit}' "$NFO_FILE")
+  if [[ -z "$line_start" || -z "$line_end" ]]; then
+    echo "[ERROR] 블록 라인 찾기 실패: line_start=$line_start, line_end=$line_end"
+    exit 1
+  fi
   block_lines=$(sed -n "${line_start},${line_end}p" "$NFO_FILE")
 
   # CMD 파싱 및 실행
