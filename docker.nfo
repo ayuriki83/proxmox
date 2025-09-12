@@ -195,8 +195,8 @@ services:
     devices:
       - "/dev/dri:/dev/dri"
     environment:
-      PUID: 1001
-      PGID: 1001
+      PUID: 0
+      PGID: 0
       TZ: ${TZ:-Asia/Seoul}
       PLEX_CLAIM: claim-dxqdEtTdsP_88m1ZBXE1
       VERSION: docker
