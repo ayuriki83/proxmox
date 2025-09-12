@@ -66,6 +66,58 @@ networks:
     external: true
     name ##DOCKER_BRIDGE_NM##
 __EOF_END__
+
+__EOF_START__ /docker/docker-all-start.sh
+#!/usr/bin/env bash
+
+cd /docker || exit 1
+
+# 다중 서비스 운영하는 폴더
+SPECIAL_DIR="ff_plex"
+# 예외적으로 건너뛸 폴더들   ("core" "backup" "testdir")
+EXCLUDE_DIRS=("core")
+
+
+# 함수: 예외폴더 여부 체크
+is_excluded() {
+  local dir=$1
+  for e in "${EXCLUDE_DIRS[@]}"; do
+    if [ "$dir" = "$e" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+for dir in */; do
+  svc=$(basename "$dir")
+
+  # 예외폴더 건너뜀
+  if is_excluded "$svc"; then
+    echo "-- $svc: 예외폴더, 건너뜀 --"
+    continue
+  fi
+
+  if [ -f "$dir/docker-compose.yml" ]; then
+    echo "-- $svc 서비스 처리 중: $dir --"
+    cd "$dir" || continue
+
+    if docker compose ps -q | grep -q .; then
+      echo "   -> 컨테이너 존재: restart 수행"
+      docker compose restart
+    else
+      echo "   -> 컨테이너 없음: up -d 수행"
+      docker compose up -d
+    fi
+
+    cd ..
+  else
+    echo "-- $svc: docker-compose.yml 없음, 생략 --"
+  fi
+done
+
+echo "모든 도커 서비스 처리 완료."
+__EOF_END__
 __EOFS_END__
 __CADDYS_START__
 __CADDY_START__
