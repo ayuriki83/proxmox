@@ -486,7 +486,7 @@ __FINAL_START__ /docker/caddy/conf/Caddyfile
         }
     }
 
-    _DOCKER_
+_CADDYS_
 
     # 기본 응답 (매칭되지 않는 서브도메인)
     handle {
