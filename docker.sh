@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 9:10
+# 9:13
 # 자동화 스크립트 (커스텀 NFO 마커 파싱 & EOF 안전 실행)
 # - 문제 원인: docker.nfo에 마커(__EOFS_START__, __EOF_START__ 등)가 한 줄에 이어붙어 있어
 #   '^__EOFS_START__$' 같은 라인 매칭이 실패 → EOF 블록 추출 불가.
@@ -84,11 +84,18 @@ done
 DOCKER_NAMES=()
 DOCKER_REQ=()
 
-# name=xxx req=yyy 형태를 잡되, 값에 따옴표가 있어도 수용
+# DOCKER_START 이후 속성 라인(name=..., req=...)을 파싱
 while IFS= read -r line; do
-  if [[ "$line" =~ ^__DOCKER_START__\ name=([^[:space:]]+)\ req=([^[:space:]]+) ]]; then
-    DOCKER_NAMES+=("${BASH_REMATCH[1]//\"/}")
-    DOCKER_REQ+=("${BASH_REMATCH[2]//\"/}")
+  if [[ "$line" =~ ^__DOCKER_START__ ]]; then
+    in_block=1
+    continue
+  fi
+  if [[ $in_block -eq 1 ]]; then
+    if [[ "$line" =~ name=([^[:space:]]+)[[:space:]]+req=([^[:space:]]+) ]]; then
+      DOCKER_NAMES+=("${BASH_REMATCH[1]//\"/}")
+      DOCKER_REQ+=("${BASH_REMATCH[2]//\"/}")
+    fi
+    in_block=0
   fi
 done < "$TMP_NFO"
 
