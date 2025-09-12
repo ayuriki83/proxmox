@@ -45,7 +45,7 @@ services:
   portainer:
     image: portainer/portainer-ce:latest
     container_name: portainer
-    restart: unless-stopped
+    restart: always
     ports:
       - "9000:9000"
     volumes:
@@ -274,7 +274,6 @@ services:
       - ./config:/config
       - ./cache:/cache
       - /mnt/rclone/Data/GDRIVE/VIDEO/AV:/media      # 본인의 미디어 경로로 수정
-    #restart: unless-stopped
 networks:
   default:
     external: true
