@@ -15,9 +15,18 @@ do
 done
 source /root/.bashrc
 
-log() { echo "[$(date '+%T')] $*"; }
-info() { echo "[$(date '+%T')][INFO] $*"; }
-err() { echo "[$(date '+%T')][ERROR]" "$@" >&2 }
+# 색상 정의 (로그 가독성 향상)
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# 로깅 함수
+log() { echo -e "${GREEN}[$(date '+%F %T')]${NC} $*" }
+error() { echo -e "${RED}[$(date '+%F %T')][ERROR]${NC} $*" >&2 }
+warn() { echo -e "${YELLOW}[$(date '+%F %T')][WARN]${NC} $*" }
+debug() { echo -e "${BLUE}[$(date '+%F %T')][DEBUG]${NC} $*" }
 
 # 설정 파일 위치 지정 (스크립트와 같은 디렉토리 등)
 CONFIG_FILE="./proxmox.env"
