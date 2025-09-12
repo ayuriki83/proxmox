@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 9:28
+# 9:34
 # 자동화 스크립트 (커스텀 NFO 마커 파싱 & EOF 안전 실행)
 # - 문제 원인: docker.nfo에 마커(__EOFS_START__, __EOF_START__ 등)가 한 줄에 이어붙어 있어
 #   '^__EOFS_START__$' 같은 라인 매칭이 실패 → EOF 블록 추출 불가.
@@ -195,75 +195,66 @@ run_commands() {
   echo
   echo "=== 실행: $svc ==="
 
-  local in_docker=0 in_cmd=0 in_eofs=0 in_eof=0
-  local cmd_content="" eof_content=""
-  local cmd_index=0 eof_index=0
+  # 1. docker.nfo에서 해당 서비스 블록만 잘라내기
+  local block
+  block="$(awk -v svc="$svc" '
+    $0 ~ "__DOCKER_START__" && $0 ~ ("name=" svc) {in_block=1; print; next}
+    in_block {print}
+    $0 ~ "__DOCKER_END__" && in_block {in_block=0; exit}
+  ' "$TMP_NFO")"
 
-  while IFS= read -r line || [ -n "$line" ]; do
-    # 서비스 블록 시작
-    if [[ "$line" =~ __DOCKER_START__.*name=$svc ]]; then
-      in_docker=1
-      continue
-    fi
-    # 서비스 블록 끝
-    if [[ "$line" =~ ^__DOCKER_END__ ]] && [[ $in_docker -eq 1 ]]; then
-      break
-    fi
-    [[ $in_docker -eq 0 ]] && continue
+  if [[ -z "$block" ]]; then
+    log "[WARN] 서비스 [$svc] 블록을 찾지 못했습니다."
+    return
+  fi
 
-    # CMD 블록
-    if [[ "$line" =~ ^__CMD_START__ ]]; then
-      in_cmd=1
-      cmd_content=""
-      continue
-    fi
-    if [[ "$line" =~ ^__CMD_END__ ]] && [[ $in_cmd -eq 1 ]]; then
-      in_cmd=0
+  # 2. CMD 블록 추출
+  local cmd_index=0
+  echo "$block" | awk '
+    BEGIN{in_cmd=0}
+    /^__CMD_START__/ {in_cmd=1; next}
+    /^__CMD_END__/   {in_cmd=0; print "===CMD_BREAK==="; next}
+    in_cmd {print}
+  ' | while IFS= read -r chunk; do
+    if [[ "$chunk" == "===CMD_BREAK===" ]]; then
       ((cmd_index++))
       local tmpf="/tmp/docker_${svc}_cmd_${cmd_index}.sh"
-      printf '%s\n' "$cmd_content" | _replace_placeholders > "$tmpf"
-      log "[DEBUG] CMD 저장: $tmpf"
+      printf '%s\n' "$cmd_buf" | _replace_placeholders > "$tmpf"
+      log "[INFO] CMD 저장: $tmpf"
       bash "$tmpf"
-      continue
+      cmd_buf=""
+    else
+      cmd_buf+="$chunk"$'\n'
     fi
-    if [[ $in_cmd -eq 1 ]]; then
-      cmd_content+="$line"$'\n'
-      continue
-    fi
+  done
 
-    # EOFS 블록 시작/끝
-    if [[ "$line" =~ ^__EOFS_START__ ]]; then
-      in_eofs=1
-      continue
-    fi
-    if [[ "$line" =~ ^__EOFS_END__ ]]; then
-      in_eofs=0
-      continue
-    fi
-
-    # EOF 블록
-    if [[ $in_eofs -eq 1 && "$line" =~ ^__EOF_START__ ]]; then
-      in_eof=1
-      eof_content=""
-      continue
-    fi
-    if [[ $in_eofs -eq 1 && "$line" =~ ^__EOF_END__ ]] && [[ $in_eof -eq 1 ]]; then
-      in_eof=0
+  # 3. EOF 블록 추출
+  local eof_index=0
+  echo "$block" | awk '
+    BEGIN{in_eofs=0; in_eof=0}
+    /^__EOFS_START__/ {in_eofs=1; next}
+    /^__EOFS_END__/   {in_eofs=0; next}
+    in_eofs && /^__EOF_START__/ {in_eof=1; next}
+    in_eofs && /^__EOF_END__/   {in_eof=0; print "===EOF_BREAK==="; next}
+    in_eof {print}
+  ' | while IFS= read -r chunk; do
+    if [[ "$chunk" == "===EOF_BREAK===" ]]; then
       ((eof_index++))
       local tmpf="/tmp/docker_${svc}_eof_${eof_index}.sh"
-      printf '%s\n' "$eof_content" | _replace_placeholders > "$tmpf"
-      log "[DEBUG] EOF 저장: $tmpf"
+      printf '%s\n' "$eof_buf" | _replace_placeholders > "$tmpf"
+      log "[INFO] EOF 저장: $tmpf"
       bash "$tmpf"
-      continue
+      eof_buf=""
+    else
+      eof_buf+="$chunk"$'\n'
     fi
-    if [[ $in_eof -eq 1 ]]; then
-      eof_content+="$line"$'\n'
-      continue
-    fi
+  done
 
-  done < "$TMP_NFO"
+  # 4. 검증 로그
+  if ((cmd_index==0 && eof_index==0)); then
+    log "[WARN] 서비스 [$svc]에서 CMD/EOF 블록을 찾지 못했습니다."
+  fi
 }
-
 # ------------------------------------------------------------------------------
 # 6) 선택된 모든 서비스 실행
 # ------------------------------------------------------------------------------
