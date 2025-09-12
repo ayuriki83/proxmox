@@ -1,6 +1,25 @@
 #!/usr/bin/env bash
 set -e
 
+# 설정 파일 위치 지정 (스크립트와 같은 디렉토리 등)
+ENV_FILE="./lxc.env"
+if [ -f "$ENV_FILE" ]; then
+    source "$ENV_FILE"
+else
+    info "설정 파일 $ENV_FILE 이(가) 없습니다. 기본값 사용."
+fi
+
+BASIC_APT=${BASIC_APT:-"curl wget htop tree neofetch git vim net-tools nfs-common"}
+LOCALE_LANG=${LOCALE_LANG:-ko_KR.UTF-8}
+TIMEZONE=${TIMEZONE:-Asia/Seoul}
+DOCKER_DATA_ROOT=${DOCKER_DATA_ROOT:-/docker/core}
+DOCKER_DNS1=${DOCKER_DNS1:-8.8.8.8}
+DOCKER_DNS2=${DOCKER_DNS2:-1.1.1.1}
+DOCKER_BRIDGE_NET=${DOCKER_BRIDGE_NET:-172.18.0.0/16}
+DOCKER_BRIDGE_GW=${DOCKER_BRIDGE_GW:-172.18.0.1}
+DOCKER_BRIDGE_NM=${DOCKER_BRIDGE_NM:-ProxyNet}
+ALLOW_PORTS=${ALLOW_PORTS:-"80/tcp 443/tcp 443/udp 45876 5574 9999 32400"}
+
 ### Step 6: /root/.bashrc 적용
 for LINE in \
   "alias ls='ls --color=auto --show-control-chars'" \
@@ -79,6 +98,7 @@ systemctl restart docker
 docker network create --subnet=$DOCKER_BRIDGE_NET --gateway=$DOCKER_BRIDGE_GW $DOCKER_BRIDGE_NM || true
 
 
+INTERNAL_NET=$(ip route | awk '/default/ {print $3}' | awk -F. '{print $1"."$2"."$3".0/24"}')
 ### Step 11: UFW 방화벽
 apt-get install -y ufw
 for PORT in $ALLOW_PORTS; do ufw allow $PORT; done
