@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Perplexity
-# 11:29
+# 11:31
 # 자동화 스크립트 (CMD/EOFS/EOF/FINAL+DOCKER_CADDY 완전 대응)
 # - NFO 사용자정의 마커 직접 파싱
 # - 환경변수 치환
