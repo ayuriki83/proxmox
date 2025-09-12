@@ -146,7 +146,7 @@ gds_userid = ##GDS_USERID##
 gds_apikey = ##GDS_APIKEY##
 gds_endpoint = https://api.sjva.me/v1/gds_auth
 __EOF_END__
-__EOF_START__/docker/rclone/filter.txt
+__EOF_START__ /docker/rclone/filter.txt
 - Featurettes/**
 __EOF_END__
 __EOFS_END__
