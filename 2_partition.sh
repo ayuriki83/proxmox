@@ -127,6 +127,9 @@ if [ -n "$SECOND_DISK" ]; then
     # Proxmox 디렉터리 스토리지 등록
     pvesm add dir "$DIR_NAME" --path "$MOUNT_PATH" --content images,backup,rootdir
     log "Proxmox에서 디렉터리 스토리지 ($DIR_NAME)로 등록됨"    
+
+    # 백업설정 필요 (Proxmox)
+    
   else
     err "올바른 선택이 아닙니다."
     exit 1
