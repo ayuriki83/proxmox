@@ -28,7 +28,7 @@ load_config() {
 }
 
 usage() {
-    log "사용법: $0 [init|add|remove] 또는 $0 (메뉴 선택)"
+    log "사용법: $0 [add|remove] 또는 $0 (메뉴 선택)"
     exit 1
 }
 
@@ -41,163 +41,13 @@ validate_input() {
     fi
 }
 
-init() {
-    log "Caddy 초기 설정 파일을 생성합니다."
-
-    mkdir -p "${CADDY_DIR}"/{conf,log}
-
-    read -p "1. Cloudflare API TOKEN 입력 : " CF_TOKEN
-    validate_input "$CF_TOKEN" "Cloudflare API TOKEN"
-
-    read -p "2. Caddy 관리자 이메일 입력 : " ADMIN_EMAIL
-    validate_input "$ADMIN_EMAIL" "Caddy 관리자 이메일"
-
-    # proxmox.conf 파일이 있고 BASE_DOMAIN이 이미 설정되어 있는지 확인
-    if load_config; then
-        log "기존 설정 파일(${PROXMOX_CONF})에서 BASE_DOMAIN을(를) 사용합니다."
-    else
-        log "기존 설정된 BASE_DOMAIN이 없습니다. 새로 입력합니다."
-        read -p "3. 기본 도메인 (예: seani.pe.kr) 입력 : " BASE_DOMAIN
-        validate_input "$BASE_DOMAIN" "기본 도메인"
-        
-        # BASE_DOMAIN 값만 업데이트 (sed 사용)
-        echo "BASE_DOMAIN=${BASE_DOMAIN}" > "$PROXMOX_CONF"
-        log "BASE_DOMAIN '${BASE_DOMAIN}'을(를) ${PROXMOX_CONF} 파일에 업데이트했습니다."
-    fi
-    
-    # proxmox.conf 파일을 다시 소싱하여 BASE_DOMAIN 변수 적용
-    load_config
-
-    # 브릿지 네트워크 명칭
-    DOCKER_BRIDGE_NM=${DOCKER_BRIDGE_NM:-ProxyNet}
-
-    read -p "4. Proxmox 내부IP:PORT (예: 192.168.0.3:8006) 입력 : " PROXMOX_IP_PORT
-    validate_input "$PROXMOX_IP_PORT" "Proxmox 내부IP:PORT"
-
-    log "서브도메인을 추가합니다."
-
-    # 서비스 정보 반복 입력
-    SERVICES=()
-    while true; do
-        read -p "1. 추가할 서브도메인(호스트명, 예: ap)입력하세요. 그만하려면 엔터 : " SUB
-        [ -z "$SUB" ] && break
-
-        read -p "2. 리버스 프록시(서버IP:포트 또는 도커명:포트) (예: 192.168.0.1:22222 또는 my-app:80)입력하세요 : " RP_ADDR
-        validate_input "$RP_ADDR" "리버스 프록시"
-        
-        # IP 패턴일 경우에만 http:// 추가
-        if [[ "$RP_ADDR" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}:[0-9]+$ ]]; then
-            RP_ADDR="http://${RP_ADDR}"
-        fi
-
-        SERVICES+=("$SUB $RP_ADDR")
-    done
-
-    # docker-compose.yml 생성
-    log "docker-compose.yml 파일을 생성합니다."
-    cat > "$DOCKER_COMPOSE_FILE" <<EOF
-services:
-  caddy:
-    container_name: caddy
-    image: ghcr.io/caddybuilds/caddy-cloudflare:latest
-    restart: always
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    cap_add:
-      - NET_ADMIN
-    volumes:
-      - ./conf:/etc/caddy
-      - ./log:/var/log
-      - data:/data
-      - config:/config
-    environment:
-      - CLOUDFLARE_API_TOKEN=${CF_TOKEN}
-volumes:
-  data:
-  config:
-networks:
-  default:
-    external: true
-    name: ${DOCKER_BRIDGE_NM}
-EOF
-
-    # Caddyfile 생성
-    log "Caddyfile 파일을 생성합니다."
-    SERVICE_BLOCKS=""
-    for SVC in "${SERVICES[@]}"; do
-        HN=$(echo "$SVC" | awk '{print $1}')
-        ADDR=$(echo "$SVC" | awk '{print $2}')
-        SERVICE_BLOCKS+=$(cat <<SVCF
-
-    @${HN} host ${HN}.${BASE_DOMAIN}
-    handle @${HN} {
-        reverse_proxy ${ADDR} {
-            header_up X-Forwarded-For {remote_host}
-            header_up X-Real-IP {remote_host}
-        }
-    }
-SVCF
-)
-    done
-
-    cat > "$CADDYFILE" <<EOF
-{
-    email ${ADMIN_EMAIL}
-}
-
-# 와일드카드 인증서로 모든 서브도메인 처리
-*.${BASE_DOMAIN} {
-    tls {
-        dns cloudflare {env.CLOUDFLARE_API_TOKEN}
-    }
-
-    # Proxmox (별도 서비스 이니 IP체크)
-    @proxmox host pve.${BASE_DOMAIN}
-    handle @proxmox {
-        reverse_proxy https://${PROXMOX_IP_PORT} {
-            tls_insecure_skip_verify
-        }
-    }
-${SERVICE_BLOCKS}
-
-    handle {
-        respond "🏠  Homelab Server - Service not found" 404
-    }
-    
-    log {
-        output file /var/log/access.log {
-            roll_size 50mb
-            roll_keep 7
-            roll_keep_for 720h
-        }
-        format json
-        level INFO
-    }
-}
-
-${BASE_DOMAIN} {
-    tls {
-        dns cloudflare {env.CLOUDFLARE_API_TOKEN}
-    }
-    respond "🏠  Homelab Main Page - All services running!"
-}
-EOF
-
-    log "docker-compose.yml, conf/Caddyfile 생성 완료"
-    log 
-    log "Caddy 컨테이너를 시작하세요."
-    log "  - 시작: cd /docker/caddy && docker-compose up -d --force-recreate"
-}
-
 add() {
     log "Caddyfile에 서비스 블록을 추가합니다."
 
-    [ ! -f "$CADDYFILE" ] && { err "$CADDYFILE 파일이 없습니다. 먼저 init을 실행하세요."; exit 2; }
+    [ ! -f "$CADDYFILE" ] && { err "$CADDYFILE 파일이 없습니다."; exit 2; }
     
     if ! load_config; then
-        err "설정 파일(${PROXMOX_CONF})에 BASE_DOMAIN이 없거나 파일을 읽지 못했습니다. 먼저 'init'을 실행하세요."; exit 3;
+        err "설정 파일(${PROXMOX_CONF})에 BASE_DOMAIN이 없거나 파일을 읽지 못했습니다."; exit 3;
     fi
     
     # 현재 서비스 목록 출력 로직 추가
@@ -291,7 +141,7 @@ SVCF
 remove() {
     log "Caddyfile에서 서비스 블록을 삭제합니다."
 
-    [ ! -f "$CADDYFILE" ] && { err "$CADDYFILE 파일이 없습니다. 초기화 (init)를 먼저 실행하세요."; exit 2; }
+    [ ! -f "$CADDYFILE" ] && { err "$CADDYFILE 파일이 없습니다."; exit 2; }
     
     if ! load_config; then
         err "설정 파일(${PROXMOX_CONF})에 BASE_DOMAIN이 없거나 파일을 읽지 못했습니다."; exit 3;
@@ -422,23 +272,20 @@ if [[ $# -lt 1 ]]; then
     log "           Caddy 자동화 스크립트"
     log "========================================"
     log "원하는 작업을 선택하세요:"
-    log "1. 초기화 (init) - 최초 전체 파일 생성"
-    log "2. 추가 (add) - 서비스 블록 추가"
-    log "3. 삭제 (remove) - 서비스 블록 삭제"
-    log "4. 종료 (exit)"
+    log "1. 추가 (add) - 서비스 블록 추가"
+    log "2. 삭제 (remove) - 서비스 블록 삭제"
+    log "3. 종료 (exit)"
     
     read -p "선택: " SELECTION
     
     case "$SELECTION" in
-        1) init ;;
-        2) add ;;
-        3) remove ;;
-        4|exit) echo "스크립트를 종료합니다."; exit 0 ;;
-        *) err "잘못된 선택입니다. 1, 2, 3, 4 중 하나를 입력하세요."; exit 1 ;;
+        1) add ;;
+        2) remove ;;
+        3|exit) echo "스크립트를 종료합니다."; exit 0 ;;
+        *) err "잘못된 선택입니다. 1, 2, 3 중 하나를 입력하세요."; exit 1 ;;
     esac
 else
     case "$1" in
-        init) init ;;
         add)  add ;;
         remove) remove ;;
         *)    usage ;;
