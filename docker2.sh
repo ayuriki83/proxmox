@@ -20,21 +20,10 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # 로깅 함수
-log() { 
-    echo -e "${GREEN}[$(date '+%F %T')]${NC} $*" 
-}
-
-error() { 
-    echo -e "${RED}[ERROR]${NC} $*" >&2 
-}
-
-warn() { 
-    echo -e "${YELLOW}[WARN]${NC} $*" 
-}
-
-debug() {
-    echo -e "${BLUE}[DEBUG]${NC} $*"
-}
+log() { echo -e "${GREEN}[$(date '+%F %T')]${NC} $*" }
+error() { echo -e "${RED}[$(date '+%F %T')][ERROR]${NC} $*" >&2 }
+warn() { echo -e "${YELLOW}[$(date '+%F %T')][WARN]${NC} $*" }
+debug() { echo -e "${BLUE}[$(date '+%F %T')][DEBUG]${NC} $*" }
 
 # 파일 경로 설정
 NFO_FILE="./docker.nfo"
