@@ -1,19 +1,33 @@
-# For Proxmox with AMD 5825u
+# For Proxmox with Ubuntu, Synology
 
 홈서버 구성을 위한 가이드!
-- Ubuntu (with docker)
-- 헤놀로지 VM
-- rclone
+- Proxmox
+  - Ubuntu (with docker)
+    - Docker Caddy (Required)
+    - Docker Portainer (Required)
+    - Docker Rclone (Required)
+    - Docker FF_Plex (Required)
+    - Docker jellyfin (Optional)
+    - Docker kavita (Optional)
+    - Docker beszel (Optional)
+    - Docker uptime-kuma (Optional)
+    - Docker vaultwarden (Optional)
+  - Synology
+    - 컨테이너 (beszel agent, naverpaper)
 
 ## 파일목록 및 설명
 
 | 파일 | 설명 |
 | --- | --- |
-| `proxmox.conf` | 환경설정 값 관리 |
-| `init.sh` | Proxmox 설치 후 초기 설정 값 대응 |
-| `partition.sh` | Proxmox 파티셔닝 |
-| `ubuntu.sh` | Ubuntu 컨테이너 생성 및 기본 설정 |
-| `caddy_setup.sh` | Docker Caddy 세팅 및 서브도메인 관리기능  |
+| `proxmox.env` | 환경설정 값 관리 |
+| `proxmox_init.sh` | Proxmox 설치 후 초기 설정 값 대응 |
+| `proxmox_partition.sh` | Proxmox 파티셔닝 |
+| `ubuntu_init.sh` | Ubuntu 컨테이너 생성 및 기본 설정 |
+| --- | --- |
+| `docker.env` | Docker 관련 환경설정 |
+| `docker.nfo` | Docker compose 및 caddy 적용 템플릿 |
+| `docker.sh` | Docker 서비스 생성 및 caddy 환경설정 생성 |
+| `caddy_setup.sh` | Docker Caddy 서브도메인 추가/삭제기능  |
 
 ### Step0. alias 적용
 ```
