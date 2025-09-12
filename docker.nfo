@@ -513,14 +513,3 @@ __FINAL_START__ /docker/caddy/conf/Caddyfile
     respond "🏠  Homelab Main Page - All services running!"
 }
 __FINAL_END__
-
-__CADDY_TEMPLATE_START__
-    # ##SUB_DOMAIN##
-    @##SUB_DOMAIN## host ##SUB_DOMAIN##.##DOMAIN##
-    handle @##SUB_DOMAIN## {
-        reverse_proxy http://##REVERSE_PROXY {
-            header_up X-Forwarded-For {remote_host}
-            header_up X-Real-IP {remote_host}
-        }
-    }
-__CADDY_TEMPLATE_END__
