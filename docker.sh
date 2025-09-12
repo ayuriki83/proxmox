@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Perplexity
-# 10:52
+# 11:17
 # 자동화 스크립트 (CMD/EOFS/EOF/FINAL+DOCKER_CADDY 완전 대응)
 # - NFO 사용자정의 마커 직접 파싱
 # - 환경변수 치환
@@ -177,14 +177,16 @@ extract_caddys() {
 }
 
 generate_caddyfile() {
-  local combined_caddy=""
+  combined_caddy=""
   for svc in "${ALL_SERVICES[@]}"; do
     caddy_block=$(extract_caddys "$svc")
-    # 변수 치환: ##DOMAIN## 등
     for key in "${!ENV_VALUES[@]}"; do
       caddy_block=${caddy_block//"##$key##"/"${ENV_VALUES[$key]}"}
     done
-    combined_caddy+=$'\n'"$caddy_block"
+    if [ -n "$combined_caddy" ]; then
+      combined_caddy+=$'\n'
+    fi
+    combined_caddy+="$caddy_block"
   done
 
   # FINAL 블록 추출
