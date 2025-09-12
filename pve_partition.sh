@@ -12,11 +12,11 @@ info() { echo "[$(date '+%T')][INFO] $*"; }
 err() { echo "[$(date '+%T')][ERROR]" "$@" >&2 }
 
 # 설정 파일 위치 지정 (스크립트와 같은 디렉토리 등)
-CONFIG_FILE="./pve.env"
-if [ -f "$CONFIG_FILE" ]; then
-    source "$CONFIG_FILE"
+ENV_FILE="./pve.env"
+if [ -f "$ENV_FILE" ]; then
+    source "$ENV_FILE"
 else
-    info "설정 파일 $CONFIG_FILE 이(가) 없습니다. 기본값 사용."
+    info "설정 파일 $ENV_FILE 이(가) 없습니다. 기본값 사용."
 fi
 
 # 환경변수 기본값 지정 (설정파일에 없을 경우 대비)
