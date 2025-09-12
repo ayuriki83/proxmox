@@ -6,15 +6,6 @@
 
 set -e
 
-# alias 추가 및 중복 제거
-for LINE in \
-  "alias ls='ls --color=auto --show-control-chars'" \
-  "alias ll='ls -al --color=auto --show-control-chars'"
-do
-  grep -q "${LINE}" /root/.bashrc || echo "${LINE}" >> /root/.bashrc
-done
-source /root/.bashrc
-
 # 색상 정의 (로그 가독성 향상)
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -29,7 +20,7 @@ warn() { echo -e "${YELLOW}[$(date '+%F %T')][WARN]${NC} $*" }
 debug() { echo -e "${BLUE}[$(date '+%F %T')][DEBUG]${NC} $*" }
 
 # 설정 파일 위치 지정 (스크립트와 같은 디렉토리 등)
-CONFIG_FILE="./proxmox.env"
+CONFIG_FILE="./pve.env"
 if [ -f "$CONFIG_FILE" ]; then
     source "$CONFIG_FILE"
 else
