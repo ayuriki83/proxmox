@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Perplexity
-# 11:17
+# 11:24
 # 자동화 스크립트 (CMD/EOFS/EOF/FINAL+DOCKER_CADDY 완전 대응)
 # - NFO 사용자정의 마커 직접 파싱
 # - 환경변수 치환
@@ -203,9 +203,8 @@ generate_caddyfile() {
   done
   final_block=${final_block//"_DOCKER_"/"$combined_caddy"}
 
-  mkdir -p ./docker/caddy/conf
-  echo "$final_block" > ./docker/caddy/conf/Caddyfile
-  echo "Caddyfile 생성 완료: ./docker/caddy/conf/Caddyfile"
+  echo "$final_block" > /docker/caddy/conf/Caddyfile
+  echo "Caddyfile 생성 완료: /docker/caddy/conf/Caddyfile"
 }
 
 # 전체 서비스 실행 및 Caddyfile 생성 호출
