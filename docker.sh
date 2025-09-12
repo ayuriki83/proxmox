@@ -25,7 +25,7 @@ warn() { echo -e "${YELLOW}[$(date '+%F %T')][WARN]${NC} $*" }
 debug() { echo -e "${BLUE}[$(date '+%F %T')][DEBUG]${NC} $*" }
 
 NFO_FILE="./docker.nfo"
-ENV_FILE="./docker.env"
+ENV_FILE="./lxc.env"
 
 if [ ! -f "$NFO_FILE" ]; then
   echo "오류: NFO 파일이 없습니다: $NFO_FILE"
