@@ -29,27 +29,32 @@
 | `docker.sh` | Docker 서비스 생성 및 caddy 환경설정 생성 |
 | `caddy_setup.sh` | Docker Caddy 서브도메인 추가/삭제기능  |
 
-### Step0. alias 적용
+### Step0. 사전작업
 ```
-echo "alias ls='ls --color=auto --show-control-chars'" >> ~/.bashrc
-echo "alias ll='ls -al --color=auto --show-control-chars'" >> ~/.bashrc
-source ~/.bashrc
-```
+echo "alias ls='ls --color=auto --show-control-chars'" >> /root/.bashrc
+echo "alias ll='ls -al --color=auto --show-control-chars'" >> /root/.bashrc
+source /root/.bashrc
 
-### Step1. Proxmox Repository 변경 및 APT 업데이트와 필수도구 설치
-```
 cp /etc/apt/sources.list.d/pve-enterprise.list /etc/apt/sources.list.d/pve-enterprise.list.bak && \
 echo "deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription" | tee /etc/apt/sources.list.d/pve-enterprise.list
-```
-```
+
 cp /etc/apt/sources.list.d/ceph.list /etc/apt/sources.list.d/ceph.list.bak && \
 echo "deb http://download.proxmox.com/debian/ceph-quincy bookworm no-subscription" | tee /etc/apt/sources.list.d/ceph.list
-```
-```
+
 apt update && apt upgrade -y
-```
-```
 apt install curl wget htop tree rsync neofetch git vim parted nfs-common net-tools -y
+
+mkdir -p /tmp/scripts && cd /tmp/scripts
+curl -L -o pve.env https://raw.githubusercontent.com/ayuriki83/proxmox/main/pve.env
+curl -L -o pve_init.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/pve_init.sh
+curl -L -o pve_partition.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/pve_partition.sh
+curl -L -o lxc_create.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/lxc_create.sh
+curl -L -o lxc_init.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/lxc_init.sh
+curl -L -o docker.env https://raw.githubusercontent.com/ayuriki83/proxmox/main/docker.env
+curl -L -o docker.nfo https://raw.githubusercontent.com/ayuriki83/proxmox/main/docker.nfo
+curl -L -o docker.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/docker.sh
+curl -L -o caddy_setup.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/caddy_setup.sh
+chmod +x pve_init.sh && chmod +x pve_partition.sh && chmod +x lxc_create.sh
 ```
 
 ### Step2. Proxmox 설치 후 초기 설정 값 대응
@@ -59,7 +64,7 @@ apt install curl wget htop tree rsync neofetch git vim parted nfs-common net-too
 - USB장치를 통한 백업 이용시 자동 마운트 (옵션)
 - GPU 활성화
 ```
-mkdir -p /tmp/proxmox && cd /tmp/proxmox
+mkdir -p /tmp/scripts && cd /tmp/scripts
 curl -L -o proxmox.conf https://raw.githubusercontent.com/ayuriki83/proxmox/main/proxmox.conf
 curl -L -o init.sh https://raw.githubusercontent.com/ayuriki83/proxmox/main/init.sh
 chmod +x *.sh
