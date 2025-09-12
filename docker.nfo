@@ -149,6 +149,78 @@ __EOF_END__
 __EOF_START__ /docker/rclone/filter.txt
 - Featurettes/**
 __EOF_END__
+__EOF_START__ /docker/rclone-after-service.sh
+#!/bin/bash
+
+# ff_plex는 항상 중지 및 기동
+docker stop ff 2>/dev/null &
+docker stop plex 2>/dev/null &
+wait
+echo "[정보] ff_plex 서비스가 중지되었습니다."
+
+# kavita, jellyfin는 존재할 경우만 중지
+for service in kavita jellyfin; do
+  dir="/docker/$service"
+  # 폴더 없으면 서비스 없음 처리
+  if [ ! -d "$dir" ]; then
+    continue
+  fi
+  # 폴더 있음 → 서비스 실행 여부 확인
+  if docker ps --filter "name=$service" --format '{{.Names}}' | grep -qw "$service"; then
+    if docker stop "$service" 2>/dev/null; then
+      echo "[정보] $service 서비스가 정상적으로 중지되었습니다."
+    else
+      echo "[경고] $service 서비스 중지에 실패했습니다."
+    fi
+  else
+    echo "[정보] $service 서비스가 실행 중이지 않습니다."
+  fi
+done
+
+# 모든 서비스가 종료될때까지 대기
+echo "[정보] 서비스가 완전히 중지될 때까지 5초간 대기합니다..."
+sleep 5
+
+# /mnt/rclone/DATA/GDRIVE가 마운트될 때까지 5초 간격 대기
+echo "[정보] /mnt/rclone/DATA/GDRIVE 마운트 상태를 확인 중입니다..."
+while [ ! -d /mnt/rclone/DATA/GDRIVE ]; do
+  sleep 5
+done
+echo "[정보] /mnt/rclone/DATA/GDRIVE가 마운트되었습니다."
+
+# I/O 안정화 대기
+echo "[정보] I/O 안정화를 위해 5초간 대기합니다..."
+sleep 5
+
+# ff_plex는 무조건 기동
+cd /docker/ff_plex && docker compose up -d
+echo "[정보] ff_plex 서비스가 시작되었습니다."
+
+# kavita, jellyfin은 폴더 및 docker-compose.yml 확인 후 기동
+for service in kavita jellyfin; do
+  dir="/docker/$service"
+  compose_file="$dir/docker-compose.yml"
+  if [ -d "$dir" ] && [ -f "$compose_file" ]; then
+    cd "$dir" && docker compose up -d
+    echo "[정보] $service 서비스가 시작되었습니다."
+  fi
+done
+
+exit 0
+__EOF_END__
+__EOF_START__ /etc/systemd/system/rclone-after-service.service
+[Unit]
+Description=Delayed Docker Compose Start After Rclone Mount
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/docker/docker-delayed-start.sh
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+__EOF_END__
 __EOFS_END__
 __DOCKER_END__
 
