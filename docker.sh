@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 9:44
+# 9:52
 # 자동화 스크립트 (커스텀 NFO 마커 파싱 & EOF 안전 실행)
 # - 문제 원인: docker.nfo에 마커(__EOFS_START__, __EOF_START__ 등)가 한 줄에 이어붙어 있어
 #   '^__EOFS_START__$' 같은 라인 매칭이 실패 → EOF 블록 추출 불가.
@@ -219,7 +219,6 @@ run_commands() {
   echo
   echo "=== 실행: $svc ==="
 
-  # 1. 서비스 블록 확보
   local block
   block="$(_get_service_block "$svc")"
   if [[ -z "$block" ]]; then
@@ -227,65 +226,48 @@ run_commands() {
     return
   fi
 
-  # 2. CMD 블록 처리
+  # CMD
   local cmd_index=0 cmd_content="" in_cmd=0
   while IFS= read -r line || [ -n "$line" ]; do
-    if [[ "$line" =~ ^[[:space:]]*__CMD_START__ ]]; then
+    if [[ "$line" == *"__CMD_START__"* ]]; then
       in_cmd=1; cmd_content=""; continue
     fi
-    if [[ "$line" =~ ^[[:space:]]*__CMD_END__ ]] && (( in_cmd )); then
+    if [[ "$line" == *"__CMD_END__"* ]] && (( in_cmd )); then
       ((cmd_index++))
       local tmpf="/tmp/docker_${svc}_cmd_${cmd_index}.sh"
-      if [[ "${#ENV_KEYS[@]}" -gt 0 ]]; then
-        printf '%s\n' "$cmd_content" | _replace_placeholders > "$tmpf"
-      else
-        printf '%s\n' "$cmd_content" > "$tmpf"
-      fi
+      printf '%s\n' "$cmd_content" | _replace_placeholders > "$tmpf"
       chmod +x "$tmpf"
       log "[INFO] CMD 저장: $tmpf"
       bash "$tmpf"
-      in_cmd=0
-      continue
+      in_cmd=0; cmd_content=""; continue
     fi
     (( in_cmd )) && cmd_content+="$line"$'\n'
   done < <(printf '%s' "$block")
 
-  # 3. EOF 블록 처리
+  # EOF
   local eof_index=0 eof_content="" in_eofs=0 in_eof=0
   while IFS= read -r line || [ -n "$line" ]; do
-    if [[ "$line" =~ ^[[:space:]]*__EOFS_START__ ]]; then
-      in_eofs=1; continue
-    fi
-    if [[ "$line" =~ ^[[:space:]]*__EOFS_END__ ]]; then
-      in_eofs=0; in_eof=0; eof_content=""; continue
-    fi
+    if [[ "$line" == *"__EOFS_START__"* ]]; then in_eofs=1; continue; fi
+    if [[ "$line" == *"__EOFS_END__"* ]]; then in_eofs=0; in_eof=0; eof_content=""; continue; fi
     (( in_eofs==0 )) && continue
 
-    if [[ "$line" =~ ^[[:space:]]*__EOF_START__ ]]; then
-      in_eof=1; eof_content=""; continue
-    fi
-    if [[ "$line" =~ ^[[:space:]]*__EOF_END__ ]] && (( in_eof )); then
+    if [[ "$line" == *"__EOF_START__"* ]]; then in_eof=1; eof_content=""; continue; fi
+    if [[ "$line" == *"__EOF_END__"* ]] && (( in_eof )); then
       in_eof=0; ((eof_index++))
       local tmpf="/tmp/docker_${svc}_eof_${eof_index}.sh"
-      if [[ "${#ENV_KEYS[@]}" -gt 0 ]]; then
-        printf '%s\n' "$eof_content" | _replace_placeholders > "$tmpf"
-      else
-        printf '%s\n' "$eof_content" > "$tmpf"
-      fi
+      printf '%s\n' "$eof_content" | _replace_placeholders > "$tmpf"
       chmod +x "$tmpf"
       log "[INFO] EOF 저장: $tmpf"
       bash "$tmpf"
-      eof_content=""
-      continue
+      eof_content=""; continue
     fi
     (( in_eof )) && eof_content+="$line"$'\n'
   done < <(printf '%s' "$block")
 
-  # 4. 검증 로그
   if ((cmd_index==0 && eof_index==0)); then
     log "[WARN] 서비스 [$svc]에서 CMD/EOF 블록을 찾지 못했습니다."
   else
-    log "[INFO] 서비스 [$svc] 처리 완료 (CMD: $cmd_index, EOF: $eof_index)"
+    log "[INFO] 서비스 [$svc] 처리 완료 (CMD:$cmd_index, EOF:$eof_index)"
   fi
 }
 
