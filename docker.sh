@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 9:16
+# 9:25
 # 자동화 스크립트 (커스텀 NFO 마커 파싱 & EOF 안전 실행)
 # - 문제 원인: docker.nfo에 마커(__EOFS_START__, __EOF_START__ 등)가 한 줄에 이어붙어 있어
 #   '^__EOFS_START__$' 같은 라인 매칭이 실패 → EOF 블록 추출 불가.
@@ -87,15 +87,9 @@ DOCKER_REQ=()
 # in_block 변수를 명시적으로 초기화
 in_block=0
 
-log "[DEBUG] docker.nfo 파싱 시작"
-
 while IFS= read -r line || [ -n "$line" ]; do
-  # [DEBUG] 현재 라인 찍기
-  log "[DEBUG] line=[$line] in_block=$in_block"
-
   if [[ "$line" =~ ^__DOCKER_START__ ]]; then
     in_block=1
-    log "[DEBUG] DOCKER_START 발견"
     continue
   fi
 
@@ -105,19 +99,17 @@ while IFS= read -r line || [ -n "$line" ]; do
       req="${BASH_REMATCH[2]//\"/}"
       DOCKER_NAMES+=("$name")
       DOCKER_REQ+=("$req")
-      log "[DEBUG] 서비스 추가됨 → name=$name, req=$req"
     else
-      log "[DEBUG] name/req 패턴 매칭 실패: $line"
+      echo "[DEBUG] name/req 패턴 매칭 실패: $line"
     fi
     in_block=0
   fi
 done < "$TMP_NFO"
 
-log "[DEBUG] 파싱 완료: 총 ${#DOCKER_NAMES[@]}개 서비스 발견"
-
+echo "[DEBUG] 파싱 완료: 총 ${#DOCKER_NAMES[@]}개 서비스 발견"
 
 # 보기 표 출력
-log "========== Docker Services =========="
+printf "========== Docker Services =========="
 printf "| %3s | %-18s | %-9s |\n" "No." "Name" "ReqYn"
 printf "|-----|--------------------|-----------|\n"
 opt_idx=1
@@ -203,60 +195,71 @@ run_commands() {
   echo
   echo "=== 실행: $svc ==="
 
-  # (a) 단일 명령어 블록 추출
-  mapfile -t cmds < <(
-    awk -v svc="$svc" '
-      $0 ~ ("__DOCKER_START__ name=" svc " ") {in_docker=1; next}
-      in_docker && $0 ~ /^__CMD_START__$/ {in_cmd=1; cmd=""; next}
-      in_docker && $0 ~ /^__CMD_END__$/   {if (in_cmd && length(cmd)>0) {print cmd}; cmd=""; in_cmd=0; next}
-      in_docker && in_cmd && $0 !~ /^__/  {cmd = cmd $0 "\n"; next}
-      $0 ~ /^__DOCKER_END__$/ {in_docker=0}
-    ' "$TMP_NFO"
-  )
+  local in_docker=0 in_cmd=0 in_eofs=0 in_eof=0
+  local cmd_content="" eof_content=""
+  local eof_index=0 cmd_index=0
 
-  # (b) 다중 라인 EOF 블록 추출
-  mapfile -t eofs < <(
-    awk -v svc="$svc" '
-      $0 ~ ("__DOCKER_START__ name=" svc " ") {in_docker=1; next}
-      in_docker && $0 ~ /^__EOFS_START__$/ {in_eofs=1; next}
-      in_docker && $0 ~ /^__EOFS_END__$/   {in_eofs=0; next}
-      in_docker && in_eofs && $0 ~ /^__EOF_START__$/ {in_eof=1; eofcmd=""; next}
-      in_docker && in_eofs && $0 ~ /^__EOF_END__$/   {print eofcmd; eofcmd=""; in_eof=0; next}
-      in_docker && in_eofs && in_eof {eofcmd = eofcmd $0 "\n"; next}
-      $0 ~ /^__DOCKER_END__$/ {in_docker=0}
-    ' "$TMP_NFO"
-  )
-
-  # (a) 단일 명령 실행
-  for idx in "${!cmds[@]}"; do
-    cmd="${cmds[$idx]}"
-    [[ -z "$cmd" ]] && continue
-    echo "---- CMD[$idx] --------------------------------"
-    # 단일 명령에도 자리표시자 치환 적용
-    if [[ "${#ENV_KEYS[@]}" -gt 0 ]]; then
-      cmd="$(printf '%s' "$cmd" | _replace_placeholders)"
+  while IFS= read -r line || [ -n "$line" ]; do
+    # 서비스 블록 시작
+    if [[ "$line" =~ __DOCKER_START__.*name=$svc ]]; then
+      in_docker=1
+      continue
     fi
-    echo "$cmd"
-    bash -c "$cmd"
-  done
+    # 서비스 블록 끝
+    if [[ "$line" =~ ^__DOCKER_END__ ]] && [[ $in_docker -eq 1 ]]; then
+      break
+    fi
+    [[ $in_docker -eq 0 ]] && continue
 
-  # (b) EOF 스크립트 실행 (임시파일에 써서 bash로 실행)
-  for idx in "${!eofs[@]}"; do
-    eofcmd="${eofs[$idx]}"
-    [[ -z "$eofcmd" ]] && continue
-
-    # 자리표시자 치환 (EOF 내에 'EOF'로 인용되어 있어도 우리는 실행 전 치환하므로 OK)
-    if [[ "${#ENV_KEYS[@]}" -gt 0 ]]; then
-      eofcmd="$(printf '%s' "$eofcmd" | _replace_placeholders)"
+    # CMD 처리
+    if [[ "$line" =~ ^__CMD_START__ ]]; then
+      in_cmd=1
+      cmd_content=""
+      continue
+    fi
+    if [[ "$line" =~ ^__CMD_END__ ]]; then
+      in_cmd=0
+      ((cmd_index++))
+      local tmpf="/tmp/docker_${svc}_cmd_${cmd_index}.sh"
+      printf '%s\n' "$cmd_content" | _replace_placeholders > "$tmpf"
+      log "[DEBUG] CMD 저장: $tmpf"
+      bash "$tmpf"
+      continue
+    fi
+    if [[ $in_cmd -eq 1 ]]; then
+      cmd_content+="$line"$'\n'
+      continue
     fi
 
-    tmpf="$(mktemp)"
-    printf '%s' "$eofcmd" > "$tmpf"
-    echo "---- EOF[$idx] (임시파일: $tmpf) --------------"
-    # 디버그: cat "$tmpf"
-    bash "$tmpf"
-    rm -f "$tmpf"
-  done
+    # EOFS/EOF 처리
+    if [[ "$line" =~ ^__EOFS_START__ ]]; then
+      in_eofs=1
+      continue
+    fi
+    if [[ "$line" =~ ^__EOFS_END__ ]]; then
+      in_eofs=0
+      continue
+    fi
+    if [[ $in_eofs -eq 1 && "$line" =~ ^__EOF_START__ ]]; then
+      in_eof=1
+      eof_content=""
+      continue
+    fi
+    if [[ $in_eofs -eq 1 && "$line" =~ ^__EOF_END__ ]]; then
+      in_eof=0
+      ((eof_index++))
+      local tmpf="/tmp/docker_${svc}_eof_${eof_index}.sh"
+      printf '%s\n' "$eof_content" | _replace_placeholders > "$tmpf"
+      log "[DEBUG] EOF 저장: $tmpf"
+      bash "$tmpf"
+      continue
+    fi
+    if [[ $in_eof -eq 1 ]]; then
+      eof_content+="$line"$'\n'
+      continue
+    fi
+
+  done < "$TMP_NFO"
 }
 
 # ------------------------------------------------------------------------------
