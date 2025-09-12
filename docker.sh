@@ -212,7 +212,15 @@ for svc in "${ALL_SERVICES[@]}"; do
   run_commands "$svc"
 done
 
+# caddyfile에 서비스별 정보 자동 등록
 generate_caddyfile
+
+# 추가로 생성한 sh파일에 실행권한 부여
+chmod +x /docker/rclone-after-service.sh
+chmod +x /docker/docker-all-start.sh
+systemctl daemon-reload
+systemctl enable rclone-after-service
+echo "ff, plex, kavita 등 기 데이터가 있을 경우 데이터를 옮긴 다음 /docker/docker-all-start.sh 를 실행해 주세요."
 
 echo "모든 작업 완료."
 log
