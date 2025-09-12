@@ -120,16 +120,29 @@ step 5 "LXC 컨테이너 시작"
 pct start $CT_ID > /dev/null 2>&1 || error_exit "컨테이너 시작 실패"
 sleep 5
 
-step 6 "LXC 컨테이너 시스템/패키지 업데이트 및 필수 구성요소 설치"
-SCRIPT_STEP_6="
+step 6 "LXC 컨테이너 /root/.bashrc 적용"
+SCRIPT_STEP_6='
+set -e
+for LINE in \
+  "alias ls='\''ls --color=auto --show-control-chars'\''" \
+  "alias ll='\''ls -al --color=auto --show-control-chars'\''"
+do
+  grep -Fxq "$LINE" /root/.bashrc || echo "$LINE" >> /root/.bashrc
+done
+source /root/.bashrc
+'
+pct exec $CT_ID -- bash -c "$SCRIPT_STEP_6"
+
+step 7 "LXC 컨테이너 시스템/패키지 업데이트 및 필수 구성요소 설치"
+SCRIPT_STEP_7="
 set -e
 apt-get update -qq > /dev/null 2>&1 && apt-get upgrade -y > /dev/null 2>&1
 apt-get install $BASIC_APT dnsutils -y > /dev/null 2>&1
 "
-pct exec $CT_ID -- bash -c "$SCRIPT_STEP_6"
+pct exec $CT_ID -- bash -c "$SCRIPT_STEP_7"
 
-step 7 "LXC 컨테이너 AppArmor비활성화/한글폰트 및 로케일/시간설정"
-SCRIPT_STEP_7="
+step 8 "LXC 컨테이너 AppArmor비활성화/한글폰트 및 로케일/시간설정"
+SCRIPT_STEP_8="
 set -e
 (
   systemctl stop apparmor || true
@@ -153,10 +166,10 @@ done
 source /root/.bashrc
 timedatectl set-timezone $TIMEZONE > /dev/null 2>&1
 "
-pct exec $CT_ID -- bash -c "$SCRIPT_STEP_7"
+pct exec $CT_ID -- bash -c "$SCRIPT_STEP_8"
 
-step 8 "LXC 컨테이너 GPU 설정 및 드라이버"
-SCRIPT_STEP_8="
+step 9 "LXC 컨테이너 GPU 설정 및 드라이버"
+SCRIPT_STEP_9="
 set -e
 case \"$GPU_CHOICE\" in
   1)
@@ -172,10 +185,10 @@ case \"$GPU_CHOICE\" in
     ;;
 esac
 "
-pct exec $CT_ID -- bash -c "$SCRIPT_STEP_8"
+pct exec $CT_ID -- bash -c "$SCRIPT_STEP_9"
 
-step 9 "LXC 컨테이너 Docker 및 Daemon 세팅, 브릿지 네트워크 생성"
-SCRIPT_STEP_9="
+step 10 "LXC 컨테이너 Docker 및 Daemon 세팅, 브릿지 네트워크 생성"
+SCRIPT_STEP_10="
 set -e
 apt-get install docker.io docker-compose-v2 -y > /dev/null 2>&1
 systemctl enable docker
@@ -195,10 +208,10 @@ EOF
 systemctl restart docker
 docker network create --subnet=$DOCKER_BRIDGE_NET --gateway=$DOCKER_BRIDGE_GW $DOCKER_BRIDGE_NM > /dev/null 2>&1 || true
 "
-pct exec $CT_ID -- bash -c "$SCRIPT_STEP_9"
+pct exec $CT_ID -- bash -c "$SCRIPT_STEP_10"
 
-step 10 "LXC 컨테이너 방화벽(UFW) 설정"
-SCRIPT_STEP_10="
+step 11 "LXC 컨테이너 방화벽(UFW) 설정"
+SCRIPT_STEP_11="
 set -e
 apt-get install ufw -y > /dev/null 2>&1
 for PORT in $ALLOW_PORTS; do ufw allow \$PORT > /dev/null 2>&1; done
@@ -207,10 +220,10 @@ ufw allow from $DOCKER_BRIDGE_NET > /dev/null 2>&1
 ufw --force enable > /dev/null 2>&1
 dig @8.8.8.8 google.com +short | grep -qE '([0-9]{1,3}\.){3}[0-9]{1,3}' || err '[CT] DNS 쿼리 실패'
 "
-pct exec $CT_ID -- bash -c "$SCRIPT_STEP_10"
+pct exec $CT_ID -- bash -c "$SCRIPT_STEP_11"
 
-step 11 "LXC 컨테이너 NAT/UFW rule적용 (DOCKER)"
-SCRIPT_STEP_11="
+step 12 "LXC 컨테이너 NAT/UFW rule적용 (DOCKER)"
+SCRIPT_STEP_12="
 set -e
 NAT_IFACE=\$(ip route | awk '/default/ {print \$5; exit}')
 if ! iptables -t nat -C POSTROUTING -s $DOCKER_BRIDGE_NET -o \$NAT_IFACE -j MASQUERADE 2>/dev/null
@@ -226,6 +239,6 @@ then
   ufw reload > /dev/null 2>&1
 fi
 "
-pct exec $CT_ID -- bash -c "$SCRIPT_STEP_11"
+pct exec $CT_ID -- bash -c "$SCRIPT_STEP_12"
 
 log "==> 전체 LXC 자동화 완료!"
