@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# 9:54
-# Docker 환경 자동화 스크립트 v3.0
-# - NFO 파일 기반 Docker 컨테이너 배포 자동화
-# - EOF 블록 처리 로직 완전 재작성
-# - 디버깅 정보 강화
+# 10:01
+# 수정된 Docker 환경 자동화 스크립트 v3.1
+# - 서브셸 문제 해결
+# - 무한 대기 문제 해결
+# - 블록 처리 로직 개선
 
 set -e  # 에러 발생시 스크립트 중단
 
@@ -54,6 +54,9 @@ load_env_file() {
     if [ -f "$ENV_FILE" ]; then
         log "환경변수 파일 로드 중: $ENV_FILE"
         while IFS='=' read -r key val; do
+            # 빈 줄이나 주석 건너뛰기
+            [[ -z "$key" || "$key" =~ ^[[:space:]]*# ]] && continue
+            
             # 공백 제거 및 따옴표 제거
             key=${key//[[:space:]]/}
             val=${val#\"}
@@ -78,7 +81,8 @@ extract_required_env() {
 prompt_for_env() {
     local key="$1"
     if [ -z "${ENV_VALUES[$key]}" ]; then
-        read -rp "환경변수 '$key' 값을 입력하세요: " val
+        echo -n "환경변수 '$key' 값을 입력하세요: "
+        read -r val
         ENV_VALUES[$key]=$val
         echo "$key=\"$val\"" >> "$ENV_FILE"
         log "환경변수 저장됨: $key"
@@ -145,7 +149,8 @@ select_services() {
     fi
     
     echo
-    read -rp "실행할 선택적 서비스 번호를 입력하세요 (예: 1,3,5 또는 all): " input_line
+    echo -n "실행할 선택적 서비스 번호를 입력하세요 (예: 1,3,5 또는 all): "
+    read -r input_line
     
     # 'all' 입력 처리
     if [[ "$input_line" == "all" ]]; then
@@ -183,7 +188,7 @@ replace_env_vars() {
     echo "$content"
 }
 
-# 서비스별 명령어 실행 (완전 재작성)
+# 서비스별 명령어 실행 (서브셸 문제 해결)
 run_service_commands() {
     local svc="$1"
     
@@ -192,8 +197,9 @@ run_service_commands() {
     echo " 서비스 처리: $svc"
     echo "════════════════════════════════════════"
     
-    # 서비스 블록 전체 추출
-    local service_block=$(awk -v svc="$svc" '
+    # 임시 파일로 서비스 블록 추출 (서브셸 문제 해결)
+    local temp_service_file=$(mktemp)
+    awk -v svc="$svc" '
         BEGIN { found=0; capture=0 }
         $0 ~ "__DOCKER_START__.*name="svc".*req=" { 
             found=1; capture=1; next 
@@ -202,57 +208,67 @@ run_service_commands() {
             capture=0; exit 
         }
         capture { print }
-    ' "$NFO_FILE")
+    ' "$NFO_FILE" > "$temp_service_file"
     
-    debug "서비스 블록 크기: $(echo "$service_block" | wc -l) 줄"
+    debug "서비스 블록 크기: $(wc -l < "$temp_service_file") 줄"
     
     # CMD 블록 처리
     log "CMD 블록 처리 중..."
     local cmd_count=0
-    echo "$service_block" | while IFS= read -r line; do
+    local in_cmd=0
+    local cmd_content=""
+    
+    while IFS= read -r line; do
         if [[ "$line" == "__CMD_START__" ]]; then
-            local cmd_content=""
-            while IFS= read -r cmd_line; do
-                [[ "$cmd_line" == "__CMD_END__" ]] && break
-                cmd_content="${cmd_content}${cmd_line}"$'\n'
-            done
-            
-            if [[ -n "$cmd_content" ]]; then
+            in_cmd=1
+            cmd_content=""
+            debug "CMD 블록 시작"
+        elif [[ "$line" == "__CMD_END__" ]]; then
+            if [[ $in_cmd -eq 1 && -n "$cmd_content" ]]; then
                 ((cmd_count++))
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
                 echo "실행: $svc - CMD #$cmd_count"
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-                echo "명령어: $cmd_content"
+                debug "명령어: $cmd_content"
                 
                 # 환경변수 치환 후 실행
-                cmd_content=$(replace_env_vars "$cmd_content")
-                eval "$cmd_content" 2>&1 | tee "${LOG_DIR}/${svc}_CMD_${cmd_count}.log"
-                log "✓ 성공: $svc - CMD #$cmd_count"
+                local cmd_final=$(replace_env_vars "$cmd_content")
+                eval "$cmd_final" 2>&1 | tee "${LOG_DIR}/${svc}_CMD_${cmd_count}.log"
+                
+                if [[ $? -eq 0 ]]; then
+                    log "✓ 성공: $svc - CMD #$cmd_count"
+                else
+                    error "✗ 실패: $svc - CMD #$cmd_count"
+                fi
+            fi
+            in_cmd=0
+            debug "CMD 블록 종료"
+        elif [[ $in_cmd -eq 1 ]]; then
+            if [[ -n "$cmd_content" ]]; then
+                cmd_content="${cmd_content}${line}"$'\n'
+            else
+                cmd_content="${line}"$'\n'
             fi
         fi
-    done < <(echo "$service_block")
+    done < "$temp_service_file"
     
-    # EOFS 블록 내의 EOF 처리
+    # EOF 블록 처리 (로직 개선)
     log "EOF 블록 처리 중..."
     local eof_count=0
     local in_eofs=0
     local in_eof=0
     local eof_content=""
     
-    echo "$service_block" | while IFS= read -r line; do
+    while IFS= read -r line; do
         # EOFS 블록 시작/종료
         if [[ "$line" == "__EOFS_START__" ]]; then
             in_eofs=1
             debug "EOFS 블록 시작"
-            continue
         elif [[ "$line" == "__EOFS_END__" ]]; then
             in_eofs=0
             debug "EOFS 블록 종료"
-            continue
-        fi
-        
-        # EOFS 블록 내부에서만 EOF 처리
-        if [[ $in_eofs -eq 1 ]]; then
+        elif [[ $in_eofs -eq 1 ]]; then
+            # EOFS 블록 내부에서만 EOF 처리
             if [[ "$line" == "__EOF_START__" ]]; then
                 in_eof=1
                 eof_content=""
@@ -265,14 +281,15 @@ run_service_commands() {
                     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
                     
                     # 환경변수 치환
-                    eof_content=$(replace_env_vars "$eof_content")
+                    local eof_final=$(replace_env_vars "$eof_content")
                     
                     # 임시 스크립트 파일 생성 및 실행
                     local tmp_script=$(mktemp)
-                    echo "$eof_content" > "$tmp_script"
+                    echo "$eof_final" > "$tmp_script"
                     
                     debug "임시 스크립트: $tmp_script"
-                    cat "$tmp_script" | head -n 3
+                    echo "스크립트 내용 (처음 3줄):"
+                    head -n 3 "$tmp_script"
                     echo "..."
                     
                     bash "$tmp_script" 2>&1 | tee "${LOG_DIR}/${svc}_EOF_${eof_count}.log"
@@ -292,18 +309,21 @@ run_service_commands() {
             elif [[ $in_eof -eq 1 ]]; then
                 # EOF 블록 내용 수집
                 if [[ -n "$eof_content" ]]; then
-                    eof_content="${eof_content}"$'\n'"${line}"
+                    eof_content="${eof_content}${line}"$'\n'
                 else
-                    eof_content="${line}"
+                    eof_content="${line}"$'\n'
                 fi
             fi
         fi
-    done
+    done < "$temp_service_file"
+    
+    # 임시 파일 정리
+    rm -f "$temp_service_file"
     
     log "서비스 $svc 처리 완료 (CMD: $cmd_count개, EOF: $eof_count개)"
 }
 
-# Caddy 설정 생성
+# Caddy 설정 생성 (서브셸 문제 해결)
 generate_caddy_config() {
     log "Caddy 설정 생성 중..."
     
@@ -312,7 +332,9 @@ generate_caddy_config() {
     for svc in "${ALL_SERVICES[@]}"; do
         debug "Caddy 블록 수집: $svc"
         
-        local service_block=$(awk -v svc="$svc" '
+        # 임시 파일로 서비스 블록 추출
+        local temp_service_file=$(mktemp)
+        awk -v svc="$svc" '
             BEGIN { found=0; capture=0 }
             $0 ~ "__DOCKER_START__.*name="svc".*req=" { 
                 found=1; capture=1; next 
@@ -321,37 +343,47 @@ generate_caddy_config() {
                 capture=0; exit 
             }
             capture { print }
-        ' "$NFO_FILE")
+        ' "$NFO_FILE" > "$temp_service_file"
         
         # CADDYS 블록 내의 CADDY 내용 추출
         local in_caddys=0
         local in_caddy=0
         local caddy_content=""
         
-        echo "$service_block" | while IFS= read -r line; do
+        while IFS= read -r line; do
             if [[ "$line" == "__CADDYS_START__" ]]; then
                 in_caddys=1
+                debug "CADDYS 블록 시작: $svc"
             elif [[ "$line" == "__CADDYS_END__" ]]; then
                 in_caddys=0
+                debug "CADDYS 블록 종료: $svc"
             elif [[ $in_caddys -eq 1 ]]; then
                 if [[ "$line" == "__CADDY_START__" ]]; then
                     in_caddy=1
                     caddy_content=""
+                    debug "CADDY 블록 시작"
                 elif [[ "$line" == "__CADDY_END__" ]]; then
                     if [[ $in_caddy -eq 1 && -n "$caddy_content" ]]; then
                         caddy_blocks="${caddy_blocks}${caddy_content}"$'\n'
+                        debug "CADDY 블록 추가됨 (길이: ${#caddy_content})"
                     fi
                     in_caddy=0
+                    debug "CADDY 블록 종료"
                 elif [[ $in_caddy -eq 1 ]]; then
                     if [[ -n "$caddy_content" ]]; then
-                        caddy_content="${caddy_content}"$'\n'"${line}"
+                        caddy_content="${caddy_content}${line}"$'\n'
                     else
-                        caddy_content="${line}"
+                        caddy_content="${line}"$'\n'
                     fi
                 fi
             fi
-        done
+        done < "$temp_service_file"
+        
+        # 임시 파일 정리
+        rm -f "$temp_service_file"
     done
+    
+    debug "수집된 Caddy 블록 크기: ${#caddy_blocks}"
     
     # FINAL 블록 추출
     local final_block=$(awk '
@@ -372,6 +404,7 @@ generate_caddy_config() {
     echo "$final_block" > /docker/caddy/conf/Caddyfile
     
     log "Caddyfile 생성 완료: /docker/caddy/conf/Caddyfile"
+    debug "Caddyfile 크기: $(wc -l < /docker/caddy/conf/Caddyfile) 줄"
 }
 
 # Docker 네트워크 생성 함수
@@ -470,7 +503,8 @@ main() {
     
     # 11. Docker Compose 실행 (선택적)
     echo
-    read -rp "Docker 컨테이너를 지금 시작하시겠습니까? (y/n): " start_now
+    echo -n "Docker 컨테이너를 지금 시작하시겠습니까? (y/n): "
+    read -r start_now
     
     if [[ "$start_now" == "y" || "$start_now" == "Y" ]]; then
         for svc in "${ALL_SERVICES[@]}"; do
