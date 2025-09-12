@@ -4,8 +4,7 @@ __CMD_START__
 mkdir -p /docker/caddy/conf && mkdir -p /docker/caddy/log
 __CMD_END__
 __EOFS_START__
-__EOF_START__
-cat > /docker/caddy/docker-compose.yml << 'EOF'
+__EOF_START__ /docker/caddy/docker-compose.yml
 services:
   caddy:
     container_name: caddy
@@ -31,7 +30,6 @@ networks:
   default:
     external: true
     name: ##DOCKER_BRIDGE_NM##
-EOF
 __EOF_END__
 __EOFS_END__
 __DOCKER_END__
@@ -41,8 +39,7 @@ __CMD_START__
 mkdir -p /docker/portainer
 __CMD_END__
 __EOFS_START__
-__EOF_START__
-cat > /docker/portainer/docker-compose.yml << 'EOF'
+__EOF_START__ /docker/portainer/docker-compose.yml
 version: "3.8"
 services:
   portainer:
@@ -68,7 +65,6 @@ networks:
   default:
     external: true
     name ##DOCKER_BRIDGE_NM##
-EOF
 __EOF_END__
 __EOFS_END__
 __CADDYS_START__
@@ -90,8 +86,7 @@ __CMD_START__
 mkdir -p /docker/rclone
 __CMD_END__
 __EOFS_START__
-__EOF_START__
-cat > /docker/rclone/docker-compose.yml << 'EOF'
+__EOF_START__ /docker/rclone/docker-compose.yml
 version: '3'
 services:
   rclone:
@@ -142,22 +137,17 @@ networks:
   default:
     external: true
     name: ##DOCKER_BRIDGE_NM##
-EOF
 __EOF_END__
-__EOF_START__
-cat > /docker/rclone/rclone.conf << 'EOF'
+__EOF_START__ /docker/rclone/rclone.conf
 [google]
 type = drive
 scope = drive
 gds_userid = ##GDS_USERID##
 gds_apikey = ##GDS_APIKEY##
 gds_endpoint = https://api.sjva.me/v1/gds_auth
-EOF
 __EOF_END__
-__EOF_START__
-cat > /docker/rclone/filter.txt << 'EOF'
+__EOF_START__/docker/rclone/filter.txt
 - Featurettes/**
-EOF
 __EOF_END__
 __EOFS_END__
 __DOCKER_END__
@@ -167,8 +157,7 @@ __CMD_START__
 mkdir -p /docker/ff_plex/ff && mkdir -p /docker/ff_plex/plex && mkdir -p /docker/ff_plex/plex/config && mkdir -p /docker/ff_plex/plex/transcode
 __CMD_END__
 __EOFS_START__
-__EOF_START__
-cat > /docker/ff_plex/docker-compose.yml << 'EOF'
+__EOF_START__ /docker/ff_plex/docker-compose.yml
 version: '3'
 services: 
   ff:
@@ -229,7 +218,6 @@ networks:
   default:
     external: true
     name: ##DOCKER_BRIDGE_NM##
-EOF
 __EOF_END__
 __EOFS_END__
 __CADDYS_START__
@@ -268,8 +256,7 @@ __CMD_START__
 mkdir -p /docker/jellyfin/cache && mkdir -p /docker/jellyfin/config
 __CMD_END__
 __EOFS_START__
-__EOF_START__
-cat > /docker/jellyfin/docker-compose.yml << 'EOF'
+__EOF_START__ /docker/jellyfin/docker-compose.yml
 version: "3.7"
 services:
   jellyfin:
@@ -292,7 +279,6 @@ networks:
   default:
     external: true
     name: ##DOCKER_BRIDGE_NM##
-EOF
 __EOF_END__
 __EOFS_END__
 __CADDYS_START__
@@ -314,8 +300,7 @@ __CMD_START__
 mkdir -p /docker/kavita
 __CMD_END__
 __EOFS_START__
-__EOF_START__
-cat > /docker/kavita/docker-compose.yml << 'EOF'
+__EOF_START__ /docker/kavita/docker-compose.yml
 version: '3.3'
 services:
   kavita:
@@ -342,7 +327,6 @@ networks:
   default:
     external: true
     name: ##DOCKER_BRIDGE_NM##
-EOF
 __EOF_END__
 __EOFS_END__
 __CADDYS_START__
@@ -364,8 +348,7 @@ __CMD_START__
 mkdir -p /docker/beszel
 __CMD_END__
 __EOFS_START__
-__EOF_START__
-cat > /docker/beszel/docker-compose.yml << 'EOF'
+__EOF_START__ /docker/beszel/docker-compose.yml
 version: "3.8"
 services:
   beszel:
@@ -388,7 +371,6 @@ networks:
   default:
     external: true
     name: ##DOCKER_BRIDGE_NM##
-EOF
 __EOF_END__
 __EOFS_END__
 __CADDYS_START__
@@ -410,8 +392,7 @@ __CMD_START__
 mkdir -p /docker/uptime-kuma
 __CMD_END__
 __EOFS_START__
-__EOF_START__
-cat > /docker/uptime-kuma/docker-compose.yml << 'EOF'
+__EOF_START__ /docker/uptime-kuma/docker-compose.yml
 version: '3.3'
 services:
   uptime-kuma:
@@ -429,7 +410,6 @@ networks:
   default:
     external: true
     name: ##DOCKER_BRIDGE_NM##
-EOF
 __EOF_END__
 __EOFS_END__
 __CADDYS_START__
@@ -451,8 +431,7 @@ __CMD_START__
 mkdir -p /docker/vaultwarden
 __CMD_END__
 __EOFS_START__
-__EOF_START__
-cat > /docker/vaultwarden/docker-compose.yml << 'EOF'
+__EOF_START__ /docker/vaultwarden/docker-compose.yml
 version: '3.1'
 services:
   vaultwarden:
@@ -469,7 +448,6 @@ networks:
   default:
     external: true
     name: ##DOCKER_BRIDGE_NM##
-EOF
 __EOF_END__
 __EOFS_END__
 __DOCKER_END__
@@ -487,8 +465,7 @@ __CADDY_END__
 __CADDYS_END__
 __DOCKER_LIST_END__
 
-__FINAL_START__
-cat > /docker/caddy/conf/Caddyfile << 'EOF'
+__FINAL_START__ /docker/caddy/conf/Caddyfile
 {
     email ##email##
 }
@@ -535,5 +512,4 @@ cat > /docker/caddy/conf/Caddyfile << 'EOF'
     }
     respond "🏠  Homelab Main Page - All services running!"
 }
-EOF
 __FINAL_END__
