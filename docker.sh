@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 9:34
+# 9:40
 # 자동화 스크립트 (커스텀 NFO 마커 파싱 & EOF 안전 실행)
 # - 문제 원인: docker.nfo에 마커(__EOFS_START__, __EOF_START__ 등)가 한 줄에 이어붙어 있어
 #   '^__EOFS_START__$' 같은 라인 매칭이 실패 → EOF 블록 추출 불가.
@@ -176,6 +176,33 @@ _escape_sed_repl() {
   printf '%s' "$s"
 }
 
+# 지정한 서비스 이름을 가진 DOCKER 블록 전체를 그대로 반환
+_get_service_block() {
+  local svc="$1"
+  awk -v svc="$svc" '
+    function has_svc_name(line) {
+      # name=svc (따옴표 유무, 공백 허용)
+      if (match(line, /name[[:space:]]*=[[:space:]]*"?([A-Za-z0-9._-]+)"?/, m)) {
+        if (m[1] == svc) return 1
+      }
+      return 0
+    }
+    BEGIN { in=0; buf=""; name_ok=0 }
+    /^\s*__DOCKER_START__/ {
+      in=1; buf=$0 ORS; name_ok=0; next
+    }
+    in {
+      buf = buf $0 ORS
+      if (has_svc_name($0)) name_ok=1
+      if ($0 ~ /^\s*__DOCKER_END__/) {
+        if (name_ok==1) { print buf; exit }
+        in=0; buf=""; name_ok=0
+      }
+      next
+    }
+  ' "$TMP_NFO"
+}
+
 _replace_placeholders() {
   # stdin → stdout
   local content
@@ -195,66 +222,92 @@ run_commands() {
   echo
   echo "=== 실행: $svc ==="
 
-  # 1. docker.nfo에서 해당 서비스 블록만 잘라내기
+  # 1) 서비스 블록 통째로 확보 (전처리로 name/req가 다음 줄로 밀려도 OK)
   local block
-  block="$(awk -v svc="$svc" '
-    $0 ~ "__DOCKER_START__" && $0 ~ ("name=" svc) {in_block=1; print; next}
-    in_block {print}
-    $0 ~ "__DOCKER_END__" && in_block {in_block=0; exit}
-  ' "$TMP_NFO")"
-
+  block="$(_get_service_block "$svc")"
   if [[ -z "$block" ]]; then
     log "[WARN] 서비스 [$svc] 블록을 찾지 못했습니다."
     return
   fi
+  # 디버그: 첫 줄만 확인하고 싶으면 주석 해제
+  # printf '%s\n' "$block" | sed -n '1,3p'
 
-  # 2. CMD 블록 추출
-  local cmd_index=0
-  echo "$block" | awk '
-    BEGIN{in_cmd=0}
-    /^__CMD_START__/ {in_cmd=1; next}
-    /^__CMD_END__/   {in_cmd=0; print "===CMD_BREAK==="; next}
-    in_cmd {print}
-  ' | while IFS= read -r chunk; do
-    if [[ "$chunk" == "===CMD_BREAK===" ]]; then
+  # 2) CMD 블록 추출/저장/실행
+  local cmd_index=0 cmd_content=""
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [[ "$line" =~ ^[[:space:]]*__CMD_START__ ]]; then
+      cmd_content=""; continue
+    fi
+    if [[ "$line" =~ ^[[:space:]]*__CMD_END__ ]]; then
       ((cmd_index++))
       local tmpf="/tmp/docker_${svc}_cmd_${cmd_index}.sh"
-      printf '%s\n' "$cmd_buf" | _replace_placeholders > "$tmpf"
-      log "[INFO] CMD 저장: $tmpf"
-      bash "$tmpf"
-      cmd_buf=""
-    else
-      cmd_buf+="$chunk"$'\n'
+      if [[ -n "$cmd_content" ]]; then
+        if [[ "${#ENV_KEYS[@]}" -gt 0 ]]; then
+          printf '%s\n' "$cmd_content" | _replace_placeholders > "$tmpf"
+        else
+          printf '%s\n' "$cmd_content" > "$tmpf"
+        fi
+        chmod +x "$tmpf"
+        log "[INFO] CMD 저장: $tmpf"
+        bash "$tmpf"
+      else
+        log "[WARN] CMD 내용이 비어 있음: $svc #$cmd_index"
+      fi
+      cmd_content=""
+      continue
     fi
-  done
+    # CMD 수집 중이라면 내용 축적
+    if [[ -n "$cmd_content" || "$line" =~ ^[[:space:]]*__CMD_START__ ]]; then
+      # 위 if에서 START를 소비하므로 여기선 단순 축적만
+      if [[ ! "$line" =~ ^[[:space:]]*__CMD_START__ ]]; then
+        cmd_content+="$line"$'\n'
+      fi
+    fi
+  done < <(printf '%s' "$block")
 
-  # 3. EOF 블록 추출
-  local eof_index=0
-  echo "$block" | awk '
-    BEGIN{in_eofs=0; in_eof=0}
-    /^__EOFS_START__/ {in_eofs=1; next}
-    /^__EOFS_END__/   {in_eofs=0; next}
-    in_eofs && /^__EOF_START__/ {in_eof=1; next}
-    in_eofs && /^__EOF_END__/   {in_eof=0; print "===EOF_BREAK==="; next}
-    in_eof {print}
-  ' | while IFS= read -r chunk; do
-    if [[ "$chunk" == "===EOF_BREAK===" ]]; then
-      ((eof_index++))
+  # 3) EOF(들) 추출/저장/실행  (__EOFS_START__ ~ __EOFS_END__ 내부의 여러 __EOF_START__/__EOF_END__)
+  local eof_index=0 in_eofs=0 in_eof=0 eof_content=""
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [[ "$line" =~ ^[[:space:]]*__EOFS_START__ ]]; then
+      in_eofs=1; continue
+    fi
+    if [[ "$line" =~ ^[[:space:]]*__EOFS_END__ ]]; then
+      in_eofs=0; in_eof=0; eof_content=""; continue
+    fi
+    [[ $in_eofs -eq 0 ]] && continue
+
+    if [[ "$line" =~ ^[[:space:]]*__EOF_START__ ]]; then
+      in_eof=1; eof_content=""; continue
+    fi
+    if [[ "$line" =~ ^[[:space:]]*__EOF_END__ ]]; then
+      in_eof=0; ((eof_index++))
       local tmpf="/tmp/docker_${svc}_eof_${eof_index}.sh"
-      printf '%s\n' "$eof_buf" | _replace_placeholders > "$tmpf"
-      log "[INFO] EOF 저장: $tmpf"
-      bash "$tmpf"
-      eof_buf=""
-    else
-      eof_buf+="$chunk"$'\n'
+      if [[ -n "$eof_content" ]]; then
+        if [[ "${#ENV_KEYS[@]}" -gt 0 ]]; then
+          printf '%s\n' "$eof_content" | _replace_placeholders > "$tmpf"
+        else
+          printf '%s\n' "$eof_content" > "$tmpf"
+        fi
+        chmod +x "$tmpf"
+        log "[INFO] EOF 저장: $tmpf"
+        bash "$tmpf"
+      else
+        log "[WARN] EOF 내용이 비어 있음: $svc #$eof_index"
+      fi
+      eof_content=""
+      continue
     fi
-  done
+    [[ $in_eof -eq 1 ]] && { eof_content+="$line"$'\n'; }
+  done < <(printf '%s' "$block")
 
-  # 4. 검증 로그
+  # 4) 검증 로그
   if ((cmd_index==0 && eof_index==0)); then
     log "[WARN] 서비스 [$svc]에서 CMD/EOF 블록을 찾지 못했습니다."
+  else
+    log "[INFO] 서비스 [$svc] 처리 완료 (CMD: $cmd_index, EOF: $eof_index)"
   fi
 }
+
 # ------------------------------------------------------------------------------
 # 6) 선택된 모든 서비스 실행
 # ------------------------------------------------------------------------------
