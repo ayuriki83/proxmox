@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 9:25
+# 9:28
 # 자동화 스크립트 (커스텀 NFO 마커 파싱 & EOF 안전 실행)
 # - 문제 원인: docker.nfo에 마커(__EOFS_START__, __EOF_START__ 등)가 한 줄에 이어붙어 있어
 #   '^__EOFS_START__$' 같은 라인 매칭이 실패 → EOF 블록 추출 불가.
@@ -109,7 +109,7 @@ done < "$TMP_NFO"
 echo "[DEBUG] 파싱 완료: 총 ${#DOCKER_NAMES[@]}개 서비스 발견"
 
 # 보기 표 출력
-printf "========== Docker Services =========="
+printf "========== Docker Services ==========|\n"
 printf "| %3s | %-18s | %-9s |\n" "No." "Name" "ReqYn"
 printf "|-----|--------------------|-----------|\n"
 opt_idx=1
@@ -197,7 +197,7 @@ run_commands() {
 
   local in_docker=0 in_cmd=0 in_eofs=0 in_eof=0
   local cmd_content="" eof_content=""
-  local eof_index=0 cmd_index=0
+  local cmd_index=0 eof_index=0
 
   while IFS= read -r line || [ -n "$line" ]; do
     # 서비스 블록 시작
@@ -211,13 +211,13 @@ run_commands() {
     fi
     [[ $in_docker -eq 0 ]] && continue
 
-    # CMD 처리
+    # CMD 블록
     if [[ "$line" =~ ^__CMD_START__ ]]; then
       in_cmd=1
       cmd_content=""
       continue
     fi
-    if [[ "$line" =~ ^__CMD_END__ ]]; then
+    if [[ "$line" =~ ^__CMD_END__ ]] && [[ $in_cmd -eq 1 ]]; then
       in_cmd=0
       ((cmd_index++))
       local tmpf="/tmp/docker_${svc}_cmd_${cmd_index}.sh"
@@ -231,7 +231,7 @@ run_commands() {
       continue
     fi
 
-    # EOFS/EOF 처리
+    # EOFS 블록 시작/끝
     if [[ "$line" =~ ^__EOFS_START__ ]]; then
       in_eofs=1
       continue
@@ -240,12 +240,14 @@ run_commands() {
       in_eofs=0
       continue
     fi
+
+    # EOF 블록
     if [[ $in_eofs -eq 1 && "$line" =~ ^__EOF_START__ ]]; then
       in_eof=1
       eof_content=""
       continue
     fi
-    if [[ $in_eofs -eq 1 && "$line" =~ ^__EOF_END__ ]]; then
+    if [[ $in_eofs -eq 1 && "$line" =~ ^__EOF_END__ ]] && [[ $in_eof -eq 1 ]]; then
       in_eof=0
       ((eof_index++))
       local tmpf="/tmp/docker_${svc}_eof_${eof_index}.sh"
