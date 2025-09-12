@@ -465,7 +465,7 @@ __CADDY_END__
 __CADDYS_END__
 __DOCKER_LIST_END__
 
-__FINAL_START__ /docker/caddy/conf/Caddyfile
+__CADDYFILE_START__ /docker/caddy/conf/Caddyfile
 {
     email ##email##
 }
@@ -512,4 +512,4 @@ _CADDYS_
     }
     respond "🏠  Homelab Main Page - All services running!"
 }
-__FINAL_END__
+__CADDYFILE_END__
