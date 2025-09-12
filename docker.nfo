@@ -9,7 +9,7 @@ services:
   caddy:
     container_name: caddy
     image: ghcr.io/caddybuilds/caddy-cloudflare:latest
-    restart: always
+    restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
@@ -45,7 +45,7 @@ services:
   portainer:
     image: portainer/portainer-ce:latest
     container_name: portainer
-    restart: always
+    restart: unless-stopped
     ports:
       - "9000:9000"
     volumes:
@@ -144,7 +144,7 @@ services:
   rclone:
     container_name: rclone
     image: ghcr.io/wiserain/rclone:mod
-    restart: always
+    restart: unless-stopped
     ports:
       - 5574:5574
     devices:
@@ -477,7 +477,7 @@ services:
   beszel:
     image: henrygd/beszel:latest
     container_name: beszel
-    restart: always
+    restart: unless-stopped
     ports:
       - "8090:8090"
     volumes:
@@ -521,7 +521,7 @@ services:
   uptime-kuma:
     container_name: uptime-kuma
     image: 'louislam/uptime-kuma:latest'
-    restart: always
+    restart: unless-stopped
     ports:
         - '3001:3001'
     volumes:
@@ -560,7 +560,7 @@ services:
   vaultwarden:
     container_name: vaultwarden
     image: vaultwarden/server
-    restart: always
+    restart: unless-stopped
     ports:
       - 8000:80
     volumes:
