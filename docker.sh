@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # Perplexity
-# 11:24
+# 11:29
 # 자동화 스크립트 (CMD/EOFS/EOF/FINAL+DOCKER_CADDY 완전 대응)
 # - NFO 사용자정의 마커 직접 파싱
 # - 환경변수 치환
 # - 도커 서비스별 명령 및 compose 파일 생성 완성
-# - CADDYS 블록 병합 및 _DOCKER_ 치환하여 Caddyfile 제작
+# - CADDYS 블록 병합 및 _CADDYS_ 치환하여 Caddyfile 제작
 # - 단계별 로그 및 디버깅 메시지 포함
 
 set -e
@@ -197,11 +197,11 @@ generate_caddyfile() {
     in_final { print }
   ' "$NFO_FILE")
 
-  # 환경변수 치환 및 _DOCKER_ 자리 치환
+  # 환경변수 치환 및 _CADDYS_ 자리 치환
   for key in "${!ENV_VALUES[@]}"; do
     final_block=${final_block//"##$key##"/"${ENV_VALUES[$key]}"}
   done
-  final_block=${final_block//"_DOCKER_"/"$combined_caddy"}
+  final_block=${final_block//"_CADDYS_"/"$combined_caddy"}
 
   echo "$final_block" > /docker/caddy/conf/Caddyfile
   echo "Caddyfile 생성 완료: /docker/caddy/conf/Caddyfile"
