@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Perplexity
-# 11:31
-# 자동화 스크립트 (CMD/EOFS/EOF/FINAL+DOCKER_CADDY 완전 대응)
+# 11:33
+# 자동화 스크립트 (CMD/EOFS/EOF/CADDYFILE+CADDYS 완전 대응)
 # - NFO 사용자정의 마커 직접 파싱
 # - 환경변수 치환
 # - 도커 서비스별 명령 및 compose 파일 생성 완성
@@ -189,21 +189,21 @@ generate_caddyfile() {
     combined_caddy+="$caddy_block"
   done
 
-  # FINAL 블록 추출
-  final_block=$(awk '
+  # CADDYFILE 블록 추출
+  caddyfile_block=$(awk '
     BEGIN {in_final=0}
-    /^__FINAL_START__/ { in_final=1; next }
-    /^__FINAL_END__/ { in_final=0; exit }
+    /^__CADDYFILE_START__/ { in_final=1; next }
+    /^__CADDYFILE_END__/ { in_final=0; exit }
     in_final { print }
   ' "$NFO_FILE")
 
   # 환경변수 치환 및 _CADDYS_ 자리 치환
   for key in "${!ENV_VALUES[@]}"; do
-    final_block=${final_block//"##$key##"/"${ENV_VALUES[$key]}"}
+    caddyfile_block=${caddyfile_block//"##$key##"/"${ENV_VALUES[$key]}"}
   done
-  final_block=${final_block//"_CADDYS_"/"$combined_caddy"}
+  caddyfile_block=${caddyfile_block//"_CADDYS_"/"$combined_caddy"}
 
-  echo "$final_block" > /docker/caddy/conf/Caddyfile
+  echo "$caddyfile_block" > /docker/caddy/conf/Caddyfile
   echo "Caddyfile 생성 완료: /docker/caddy/conf/Caddyfile"
 }
 
