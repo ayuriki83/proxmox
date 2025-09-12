@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# 9:49
-# Docker 환경 자동화 스크립트 v2.0
+# 9:54
+# Docker 환경 자동화 스크립트 v3.0
 # - NFO 파일 기반 Docker 컨테이너 배포 자동화
-# - 환경변수 치환 및 heredoc 처리 개선
-# - 에러 처리 및 로깅 강화
+# - EOF 블록 처리 로직 완전 재작성
+# - 디버깅 정보 강화
 
 set -e  # 에러 발생시 스크립트 중단
 
@@ -12,6 +12,7 @@ set -e  # 에러 발생시 스크립트 중단
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # 로깅 함수
@@ -25,6 +26,10 @@ error() {
 
 warn() { 
     echo -e "${YELLOW}[WARN]${NC} $*" 
+}
+
+debug() {
+    echo -e "${BLUE}[DEBUG]${NC} $*"
 }
 
 # 파일 경로 설정
@@ -54,7 +59,7 @@ load_env_file() {
             val=${val#\"}
             val=${val%\"}
             ENV_VALUES[$key]=$val
-            log "  - $key 로드됨"
+            debug "  - $key = $val"
         done < "$ENV_FILE"
     else
         warn "환경변수 파일이 없습니다. 새로 생성합니다: $ENV_FILE"
@@ -122,7 +127,7 @@ display_services() {
         fi
         
         if [[ "$req" == "true" ]]; then
-            printf "│ %3s │ ${GREEN}%-15s${NC} │ %-10s │\n" "$no" "$name" "Yes"
+            printf "│ %3s │ ${GREEN}%-15s${NC} │ %-10s │\n" "" "$name" "Yes"
         else
             printf "│ %3s │ %-15s │ %-10s │\n" "$no" "$name" "No"
         fi
@@ -172,50 +177,13 @@ replace_env_vars() {
     
     for key in "${!ENV_VALUES[@]}"; do
         value="${ENV_VALUES[$key]}"
-        # 특수 문자 이스케이프 처리
-        escaped_value=$(printf '%s\n' "$value" | sed 's/[[\.*^$()+?{|]/\\&/g')
-        content="${content//##${key}##/$escaped_value}"
+        content="${content//##${key}##/$value}"
     done
     
     echo "$content"
 }
 
-# 명령어 실행 함수
-execute_command() {
-    local cmd="$1"
-    local service="$2"
-    local cmd_type="$3"
-    local idx="$4"
-    
-    # 환경변수 치환
-    cmd=$(replace_env_vars "$cmd")
-    
-    # 로그 파일 경로
-    local log_file="${LOG_DIR}/${service}_${cmd_type}_${idx}.log"
-    
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "실행: $service - $cmd_type #$idx"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    
-    # 명령어 내용 표시 (디버그용)
-    if [[ "$cmd_type" == "CMD" ]]; then
-        echo "명령어: $cmd"
-    else
-        echo "다중라인 명령어:"
-        echo "$cmd" | head -n 5
-        echo "..."
-    fi
-    
-    # 실제 실행
-    if bash -c "$cmd" 2>&1 | tee "$log_file"; then
-        log "✓ 성공: $service - $cmd_type #$idx"
-    else
-        error "✗ 실패: $service - $cmd_type #$idx (로그: $log_file)"
-        return 1
-    fi
-}
-
-# 서비스별 명령어 실행
+# 서비스별 명령어 실행 (완전 재작성)
 run_service_commands() {
     local svc="$1"
     
@@ -224,77 +192,115 @@ run_service_commands() {
     echo " 서비스 처리: $svc"
     echo "════════════════════════════════════════"
     
-    # CMD 블록 추출 및 실행
-    log "CMD 블록 처리 중..."
-    local cmd_idx=0
-    while IFS= read -r cmd_block; do
-        if [[ -n "$cmd_block" ]]; then
-            execute_command "$cmd_block" "$svc" "CMD" "$cmd_idx"
-            ((cmd_idx++))
-        fi
-    done < <(awk -v svc="$svc" '
-        BEGIN { in_docker=0; in_cmd=0; cmd="" }
-        $0 ~ "__DOCKER_START__.*name="svc".*req=" { in_docker=1; next }
-        in_docker && /^__CMD_START__$/ { in_cmd=1; cmd=""; next }
-        in_docker && /^__CMD_END__$/ { 
-            if (in_cmd && length(cmd)>0) print cmd
-            cmd=""; in_cmd=0; next 
+    # 서비스 블록 전체 추출
+    local service_block=$(awk -v svc="$svc" '
+        BEGIN { found=0; capture=0 }
+        $0 ~ "__DOCKER_START__.*name="svc".*req=" { 
+            found=1; capture=1; next 
         }
-        in_docker && in_cmd && !/^__/ { 
-            if (length(cmd)>0) cmd=cmd"\n"
-            cmd=cmd$0
-            next 
+        capture && /^__DOCKER_END__$/ { 
+            capture=0; exit 
         }
-        /^__DOCKER_END__$/ { in_docker=0; exit }
+        capture { print }
     ' "$NFO_FILE")
     
-    # EOF 블록 추출 및 실행
+    debug "서비스 블록 크기: $(echo "$service_block" | wc -l) 줄"
+    
+    # CMD 블록 처리
+    log "CMD 블록 처리 중..."
+    local cmd_count=0
+    echo "$service_block" | while IFS= read -r line; do
+        if [[ "$line" == "__CMD_START__" ]]; then
+            local cmd_content=""
+            while IFS= read -r cmd_line; do
+                [[ "$cmd_line" == "__CMD_END__" ]] && break
+                cmd_content="${cmd_content}${cmd_line}"$'\n'
+            done
+            
+            if [[ -n "$cmd_content" ]]; then
+                ((cmd_count++))
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                echo "실행: $svc - CMD #$cmd_count"
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                echo "명령어: $cmd_content"
+                
+                # 환경변수 치환 후 실행
+                cmd_content=$(replace_env_vars "$cmd_content")
+                eval "$cmd_content" 2>&1 | tee "${LOG_DIR}/${svc}_CMD_${cmd_count}.log"
+                log "✓ 성공: $svc - CMD #$cmd_count"
+            fi
+        fi
+    done < <(echo "$service_block")
+    
+    # EOFS 블록 내의 EOF 처리
     log "EOF 블록 처리 중..."
-    local eof_idx=0
+    local eof_count=0
+    local in_eofs=0
     local in_eof=0
     local eof_content=""
     
-    while IFS= read -r line; do
-        if [[ "$line" == "__EOF_START__" ]]; then
-            in_eof=1
-            eof_content=""
-        elif [[ "$line" == "__EOF_END__" ]]; then
-            if [[ -n "$eof_content" ]]; then
-                # heredoc 실행을 위한 임시 스크립트 생성
-                local tmp_script=$(mktemp)
-                echo "$eof_content" > "$tmp_script"
-                
-                # 환경변수 치환 적용
-                local replaced_content=$(replace_env_vars "$eof_content")
-                echo "$replaced_content" > "$tmp_script"
-                
-                # 스크립트 실행
-                if bash "$tmp_script" 2>&1 | tee "${LOG_DIR}/${svc}_EOF_${eof_idx}.log"; then
-                    log "✓ EOF 블록 #$eof_idx 성공"
-                else
-                    error "✗ EOF 블록 #$eof_idx 실패"
+    echo "$service_block" | while IFS= read -r line; do
+        # EOFS 블록 시작/종료
+        if [[ "$line" == "__EOFS_START__" ]]; then
+            in_eofs=1
+            debug "EOFS 블록 시작"
+            continue
+        elif [[ "$line" == "__EOFS_END__" ]]; then
+            in_eofs=0
+            debug "EOFS 블록 종료"
+            continue
+        fi
+        
+        # EOFS 블록 내부에서만 EOF 처리
+        if [[ $in_eofs -eq 1 ]]; then
+            if [[ "$line" == "__EOF_START__" ]]; then
+                in_eof=1
+                eof_content=""
+                debug "EOF 블록 시작"
+            elif [[ "$line" == "__EOF_END__" ]]; then
+                if [[ $in_eof -eq 1 && -n "$eof_content" ]]; then
+                    ((eof_count++))
+                    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                    echo "실행: $svc - EOF #$eof_count"
+                    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                    
+                    # 환경변수 치환
+                    eof_content=$(replace_env_vars "$eof_content")
+                    
+                    # 임시 스크립트 파일 생성 및 실행
+                    local tmp_script=$(mktemp)
+                    echo "$eof_content" > "$tmp_script"
+                    
+                    debug "임시 스크립트: $tmp_script"
+                    cat "$tmp_script" | head -n 3
+                    echo "..."
+                    
+                    bash "$tmp_script" 2>&1 | tee "${LOG_DIR}/${svc}_EOF_${eof_count}.log"
+                    local exit_code=$?
+                    
+                    rm -f "$tmp_script"
+                    
+                    if [[ $exit_code -eq 0 ]]; then
+                        log "✓ 성공: $svc - EOF #$eof_count"
+                    else
+                        error "✗ 실패: $svc - EOF #$eof_count (exit: $exit_code)"
+                    fi
                 fi
-                
-                rm -f "$tmp_script"
-                ((eof_idx++))
-            fi
-            in_eof=0
-            eof_content=""
-        elif [[ $in_eof -eq 1 ]]; then
-            if [[ -n "$eof_content" ]]; then
-                eof_content="${eof_content}"$'\n'"${line}"
-            else
-                eof_content="${line}"
+                in_eof=0
+                eof_content=""
+                debug "EOF 블록 종료"
+            elif [[ $in_eof -eq 1 ]]; then
+                # EOF 블록 내용 수집
+                if [[ -n "$eof_content" ]]; then
+                    eof_content="${eof_content}"$'\n'"${line}"
+                else
+                    eof_content="${line}"
+                fi
             fi
         fi
-    done < <(awk -v svc="$svc" '
-        BEGIN { in_docker=0; in_eofs=0; in_eof=0 }
-        $0 ~ "__DOCKER_START__.*name="svc".*req=" { in_docker=1; next }
-        in_docker && /^__EOFS_START__$/ { in_eofs=1; next }
-        in_docker && /^__EOFS_END__$/ { in_eofs=0; next }
-        in_docker && in_eofs { print }
-        /^__DOCKER_END__$/ { in_docker=0; exit }
-    ' "$NFO_FILE")
+    done
+    
+    log "서비스 $svc 처리 완료 (CMD: $cmd_count개, EOF: $eof_count개)"
 }
 
 # Caddy 설정 생성
@@ -304,27 +310,47 @@ generate_caddy_config() {
     # CADDY 블록 수집
     local caddy_blocks=""
     for svc in "${ALL_SERVICES[@]}"; do
-        local block=$(awk -v svc="$svc" '
-            BEGIN { in_docker=0; in_caddys=0; in_caddy=0; content="" }
-            $0 ~ "__DOCKER_START__.*name="svc".*req=" { in_docker=1; next }
-            in_docker && /^__CADDYS_START__$/ { in_caddys=1; next }
-            in_docker && /^__CADDYS_END__$/ { in_caddys=0; next }
-            in_docker && in_caddys && /^__CADDY_START__$/ { in_caddy=1; next }
-            in_docker && in_caddys && /^__CADDY_END__$/ { 
-                if (in_caddy && length(content)>0) print content
-                content=""; in_caddy=0; next 
+        debug "Caddy 블록 수집: $svc"
+        
+        local service_block=$(awk -v svc="$svc" '
+            BEGIN { found=0; capture=0 }
+            $0 ~ "__DOCKER_START__.*name="svc".*req=" { 
+                found=1; capture=1; next 
             }
-            in_docker && in_caddys && in_caddy { 
-                if (length(content)>0) content=content"\n"
-                content=content$0
-                next 
+            capture && /^__DOCKER_END__$/ { 
+                capture=0; exit 
             }
-            /^__DOCKER_END__$/ { in_docker=0; exit }
+            capture { print }
         ' "$NFO_FILE")
         
-        if [[ -n "$block" ]]; then
-            caddy_blocks="${caddy_blocks}"$'\n'"${block}"
-        fi
+        # CADDYS 블록 내의 CADDY 내용 추출
+        local in_caddys=0
+        local in_caddy=0
+        local caddy_content=""
+        
+        echo "$service_block" | while IFS= read -r line; do
+            if [[ "$line" == "__CADDYS_START__" ]]; then
+                in_caddys=1
+            elif [[ "$line" == "__CADDYS_END__" ]]; then
+                in_caddys=0
+            elif [[ $in_caddys -eq 1 ]]; then
+                if [[ "$line" == "__CADDY_START__" ]]; then
+                    in_caddy=1
+                    caddy_content=""
+                elif [[ "$line" == "__CADDY_END__" ]]; then
+                    if [[ $in_caddy -eq 1 && -n "$caddy_content" ]]; then
+                        caddy_blocks="${caddy_blocks}${caddy_content}"$'\n'
+                    fi
+                    in_caddy=0
+                elif [[ $in_caddy -eq 1 ]]; then
+                    if [[ -n "$caddy_content" ]]; then
+                        caddy_content="${caddy_content}"$'\n'"${line}"
+                    else
+                        caddy_content="${line}"
+                    fi
+                fi
+            fi
+        done
     done
     
     # FINAL 블록 추출
