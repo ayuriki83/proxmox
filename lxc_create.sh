@@ -19,6 +19,14 @@ error() { echo -e "${RED}[$(date '+%F %T')][ERROR]${NC} $*" >&2 }
 warn() { echo -e "${YELLOW}[$(date '+%F %T')][WARN]${NC} $*" }
 debug() { echo -e "${BLUE}[$(date '+%F %T')][DEBUG]${NC} $*" }
 
+# 설정 파일 위치 지정 (스크립트와 같은 디렉토리 등)
+ENV_FILE="./lxc.env"
+if [ -f "$ENV_FILE" ]; then
+    source "$ENV_FILE"
+else
+    info "설정 파일 $ENV_FILE 이(가) 없습니다. 기본값 사용."
+fi
+
 MAIN=${MAIN:-main}
 VG_NAME="vg-$MAIN"
 LV_NAME="lv-$MAIN"
@@ -36,16 +44,6 @@ RCLONE_GB=${RCLONE_GB:-256}
 RCLONE_SIZE="${RCLONE_GB}G"
 LV_RCLONE=${LV_RCLONE:-lv-rclone}
 MOUNT_POINT=${MOUNT_POINT:-/mnt/rclone}
-LOCALE_LANG=${LOCALE_LANG:-ko_KR.UTF-8}
-TIMEZONE=${TIMEZONE:-Asia/Seoul}
-DOCKER_DATA_ROOT=${DOCKER_DATA_ROOT:-/docker/core}
-DOCKER_DNS1=${DOCKER_DNS1:-8.8.8.8}
-DOCKER_DNS2=${DOCKER_DNS2:-1.1.1.1}
-DOCKER_BRIDGE_NET=${DOCKER_BRIDGE_NET:-172.18.0.0/16}
-DOCKER_BRIDGE_GW=${DOCKER_BRIDGE_GW:-172.18.0.1}
-DOCKER_BRIDGE_NM=${DOCKER_BRIDGE_NM:-ProxyNet}
-BASIC_APT=${BASIC_APT:-"curl wget htop tree neofetch git vim net-tools nfs-common"}
-ALLOW_PORTS=${ALLOW_PORTS:-"80/tcp 443/tcp 443/udp 45876 5574 9999 32400"}
 
 step() { log "==> STEP $1: $2"; }
 error_exit() { err "$1"; exit 1; }
@@ -123,6 +121,10 @@ sleep 5
 
 pct exec $CT_ID -- mkdir -p /tmp/scripts
 pct push $CT_ID lxc_init.sh /tmp/scripts/lxc_init.sh
+pct push $CT_ID lxc.env /tmp/scripts/lxc.env
+pct push $CT_ID docker.nfo /tmp/scripts/docker.nfo
+pct push $CT_ID docker.sh /tmp/scripts/docker.sh
+pct push $CT_ID caddy_setup.sh /tmp/scripts/caddy_setup.sh
 pct exec $CT_ID -- bash /tmp/scripts/lxc_init.sh
 
 
